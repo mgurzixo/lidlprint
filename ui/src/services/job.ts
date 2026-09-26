@@ -376,6 +376,21 @@ async function doPrint(): Promise<void> {
 
 // Replay the exact captured vendor "hello world" job (doc/RE doc §4).
 // console: (await __replayCapture())  — needs printer connected.
+(window as any).__replayVendorPhoto = async function () {
+  const btMod: any = await import('./bt');
+  const store = btMod.bt;
+  if (store.state === 'connected') await btMod.useBt().disconnect('');
+  if (!(await btMod.useBt().connect())) return 'connect failed';
+  console.log('[lidlprint] vendor replay: connected, streaming');
+  const hex = await (await fetch('/vendor_sent.hex')).text();
+  const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
+  const sink = makeSink();
+  const { writeChunk, finishJob } = await import('./printer-protocol');
+  await writeChunk(sink, bytes, { chunkSize: 255 });
+  const ok = await finishJob(sink, 15000);
+  return ok ? 'vendor replay done' : 'no ready sentinel';
+};
+
 (window as any).__replayCapture = async function () {
   const btMod: any = await import('./bt');
   const store = btMod.bt;
