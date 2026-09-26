@@ -1,6 +1,7 @@
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file
 
+import fs from 'node:fs';
 import { defineConfig } from '#q-app';
 import pkg from './package.json';
 
@@ -85,7 +86,15 @@ export default defineConfig((/* ctx */) => {
     },
 
     bin: {
-      linuxAndroidStudio: '/home/mgouget/android-studio/bin/studio.sh'
+      // Resolve studio.sh per environment so the same config works everywhere.
+      linuxAndroidStudio: [
+        process.env.ANDROID_STUDIO_PATH,
+        "/home/mgouget/android-studio/bin/studio.sh", // vroum
+        "/opt/android-studio/bin/studio.sh",
+        "/usr/local/android-studio/bin/studio.sh",
+        process.env.HOME + "/android-studio/bin/studio.sh",
+        "/snap/bin/android-studio",
+      ].find((p) => p && fs.existsSync(p)),
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
@@ -197,7 +206,11 @@ export default defineConfig((/* ctx */) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/developing-capacitor-apps/configuring-capacitor
     capacitor: {
-      hideSplashscreen: true
+      hideSplashscreen: false,
+      backButton: false,
+      hideLogs: true,
+      useLog: false,
+      launchAutoHide: false,
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/configuring-electron
