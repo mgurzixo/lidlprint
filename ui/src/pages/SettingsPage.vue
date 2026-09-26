@@ -2,8 +2,19 @@
   <q-page class="column settings-page">
     <div class="text-h6 q-pa-md">Printer</div>
     <div class="text-body2 text-grey-7 q-px-md">
-      Pair the printer once in Android Bluetooth settings (it shows as
-      “Mini Pocket Printer”), then pick it here.
+      The printer must be paired first (it shows as “Mini Pocket Printer”).
+      Tap the button below to open Android Bluetooth settings, pair it there,
+      then come back and pick it from the list.
+    </div>
+    <div class="q-px-md q-pt-sm">
+      <q-btn
+        no-caps
+        unelevated
+        color="primary"
+        icon="bluetooth"
+        label="Open Bluetooth settings"
+        @click="() => openBtSettings()"
+      />
     </div>
 
     <q-list class="q-mt-md">
@@ -69,6 +80,10 @@ async function refresh() {
   } finally {
     loading.value = false;
   }
+}
+
+async function openBtSettings() {
+  await bt.openPairingSettings();
 }
 
 function choose(d: BondedDevice) {

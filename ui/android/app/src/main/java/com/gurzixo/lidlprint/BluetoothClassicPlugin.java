@@ -173,6 +173,20 @@ public class BluetoothClassicPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openPairingSettings(PluginCall call) {
+        if (!hasConnectPermission()) {
+            call.reject("BLUETOOTH_CONNECT permission not granted");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
     public void isConnected(PluginCall call) {
         JSObject ret = new JSObject();
         synchronized (ioLock) {

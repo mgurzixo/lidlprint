@@ -23,6 +23,7 @@ interface BtPlugin {
   write(options: { data: string /* base64 */ }): Promise<void>;
   read(options: { timeoutMs: number }): Promise<{ data: string /* base64, may be empty */ }>;
   isConnected(): Promise<{ connected: boolean }>;
+  openPairingSettings?(): Promise<void>;
 }
 
 declare global {
@@ -91,6 +92,15 @@ export function useBt() {
     async listBonded(): Promise<BondedDevice[]> {
       return (await plugin().listBonded()).devices;
     },
+    async openPairingSettings(): Promise<void> {
+      const p = plugin();
+      if (p.openPairingSettings) {
+        await p.openPairingSettings();
+        return;
+      }
+      // web/dev fallback
+      window.open('https://support.google.com/android/answer/9075928', '_blank');
+    },
     selectPrinter(d: BondedDevice) {
       bt.device = d;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
@@ -98,7 +108,7 @@ export function useBt() {
     },
     async connect(): Promise<boolean> {
       if (!bt.device) {
-        say('No printer selected. Pick one in Settings.', true);
+        say('Printer not paired. Open Settings to pair it, then pick it.', true);
         return false;
       }
       bt.state = 'connecting';
