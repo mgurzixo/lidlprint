@@ -175,11 +175,6 @@ public class BluetoothClassicPlugin extends Plugin {
     @PluginMethod
     public void openPairingSettings(PluginCall call) {
         android.util.Log.d("lidlprint", "openPairingSettings called");
-        if (!hasConnectPermission()) {
-            android.util.Log.d("lidlprint", "no BLUETOOTH_CONNECT permission");
-            call.reject("BLUETOOTH_CONNECT permission not granted");
-            return;
-        }
         getActivity().runOnUiThread(() -> {
             try {
                 android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
