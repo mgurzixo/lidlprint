@@ -151,24 +151,29 @@ export function encodeJob(
 // ---------------------------------------------------------------- transport helpers
 
 /** Max SPP payload per RFCOMM UIH frame observed from the vendor app. */
-export const SPP_CHUNK = 255;
+export const SPP_CHUNK = 122;
 
 /**
- * Blast a chunk to the printer like the vendor app does: consecutive
- * 255-byte writes at full speed, NO per-chunk ACK waiting (the printer
- * sends no ACKs during image streaming — the '01' bytes are response
- * prefixes for status queries only). Completion is signaled by the
- * printer's `AA 0D 0A` after the endJob command (see finishJob).
+ * Vendor-matched pacing: 122-byte writes with ~20 ms gaps (≈6 KB/s,
+ * safely below the printer's inflate+print throughput of ~80 dot-lines/s).
+ * The vendor capture shows no per-chunk ACKs during image streaming —
+ * completion is signaled by `AA 0D 0A` after endJob (see finishJob).
  */
 export async function writeChunk(
   sink: ByteSink,
   chunk: Uint8Array,
-  opts: { chunkSize?: number } = {},
+  opts: { chunkSize?: number; paceMs?: number } = {},
 ): Promise<void> {
   const size = opts.chunkSize ?? SPP_CHUNK;
+  const pace = opts.paceMs ?? 20;
   for (let off = 0; off < chunk.length; off += size) {
     await sink.write(chunk.subarray(off, Math.min(off + size, chunk.length)));
+    await sleep2(pace);
   }
+}
+
+function sleep2(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function finishJob(sink: ByteSink, timeoutMs = 10_000): Promise<boolean> {
