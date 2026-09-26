@@ -154,37 +154,34 @@ export function encodeJob(
 export const SPP_CHUNK = 122;
 
 /**
- * Send a chunk and wait for the printer's single-byte ACK (0x01).
- * Falls back to a fixed pace if the printer stays silent (gen-1 units
- * seem to ACK less consistently).
+ * Send a chunk and WAIT for the printer's single-byte ACK before continuing.
+ * The printer prints as it receives (~80 dots/s); the ACK is its
+ * "buffer consumed, send more" signal — this IS the flow control.
+ * Patience per chunk is generous (dense rows + mechanical feed).
  */
 export async function writeChunk(
   sink: ByteSink,
   chunk: Uint8Array,
-  opts: { chunkSize?: number; ackTimeoutMs?: number; paceMs?: number } = {},
+  opts: { chunkSize?: number; ackTimeoutMs?: number } = {},
 ): Promise<void> {
   const size = opts.chunkSize ?? SPP_CHUNK;
-  const ackMs = opts.ackTimeoutMs ?? 1000;
-  const pace = opts.paceMs ?? 20;
+  const ackMs = opts.ackTimeoutMs ?? 5000;
   for (let off = 0; off < chunk.length; off += size) {
     const part = chunk.subarray(off, Math.min(off + size, chunk.length));
     await sink.write(part);
-    const got = await readWithTimeout(sink, ackMs);
-    if (got.length === 0) {
-      // no ACK — pace instead
-      await sleep(pace);
+    const deadline = Date.now() + ackMs;
+    let acked = false;
+    while (Date.now() < deadline) {
+      const got = await sink.read(); // native poll returns [] after its own 1s loop
+      if (got.length > 0) {
+        acked = true;
+        break;
+      }
+    }
+    if (!acked) {
+      throw new Error(`printer stopped ACKing at byte ${off + part.length}`);
     }
   }
-}
-
-async function readWithTimeout(sink: ByteSink, ms: number): Promise<Uint8Array> {
-  // The sink implementation is responsible for not blocking forever;
-  // if it cannot timeout, poll with a race.
-  const race = Promise.race([
-    sink.read(),
-    sleep(ms).then(() => new Uint8Array(0)),
-  ]);
-  return race;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -195,7 +192,7 @@ export async function finishJob(sink: ByteSink, timeoutMs = 10_000): Promise<boo
   const deadline = Date.now() + timeoutMs;
   let acc: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   while (Date.now() < deadline) {
-    const got = await readWithTimeout(sink, 500);
+    const got = await sink.read(); // native 1s poll
     if (got.length === 0) continue;
     const merged = cat(acc, got);
     // look for the sentinel anywhere in the tail

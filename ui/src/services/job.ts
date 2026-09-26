@@ -294,9 +294,7 @@ async function doPrint(): Promise<void> {
     for (const chunk of chunks) {
       await writeChunk(sink, chunk, {
         chunkSize: 122,
-        ackTimeoutMs: 1000,
-        paceMs: 20,
-        // progress reporting per chunk write
+        ackTimeoutMs: 5000,
       });
       sent += chunk.length;
       job.progress = Math.min(99, Math.round((sent / total) * 100));
@@ -332,7 +330,7 @@ async function doPrint(): Promise<void> {
   const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
   const sink = makeSink();
   const { writeChunk } = await import('./printer-protocol');
-  await writeChunk(sink, bytes, { chunkSize: 122, ackTimeoutMs: 1000, paceMs: 20 });
+  await writeChunk(sink, bytes, { chunkSize: 122, ackTimeoutMs: 5000 });
   const { finishJob } = await import('./printer-protocol');
   const ok = await finishJob(sink, 10000);
   return ok ? 'replay done' : 'no ready sentinel';
