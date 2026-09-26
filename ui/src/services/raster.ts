@@ -60,6 +60,41 @@ export function scaleGray(src: Gray, newWidth: number, newHeight: number): Gray 
   return { data: out, width: newWidth, height: newHeight };
 }
 
+/**
+ * Trim uniform white borders down to `keep` pixels of quiet zone.
+ * Matches the vendor app behavior: the QR ink fills the full 384-dot width.
+ */
+export function trimWhiteBorders(
+  rgba: Uint8ClampedArray,
+  w: number,
+  h: number,
+  keep = 8,
+): { data: Uint8ClampedArray; w: number; h: number } {
+  const stride = w * 4;
+  const isWhite = (x: number, y: number) => {
+    const o = y * stride + x * 4;
+    return rgba[o]! > 245 && rgba[o + 1]! > 245 && rgba[o + 2]! > 245;
+  };
+  let top = 0, bottom = h - 1, left = 0, right = w - 1;
+  const rowWhite = (y: number) => { for (let x = 0; x < w; x++) if (!isWhite(x, y)) return false; return true; };
+  const colWhite = (x: number) => { for (let y = 0; y < h; y++) if (!isWhite(x, y)) return false; return true; };
+  while (top < bottom && rowWhite(top)) top++;
+  while (bottom > top && rowWhite(bottom)) bottom--;
+  while (left < right && colWhite(left)) left++;
+  while (right > left && colWhite(right)) right--;
+  top = Math.max(0, top - keep); bottom = Math.min(h - 1, bottom + keep);
+  left = Math.max(0, left - keep); right = Math.min(w - 1, right + keep);
+  if (bottom <= top || right <= left) return { data: rgba, w, h }; // all-white fallback
+  const nw = right - left + 1, nh = bottom - top + 1;
+  if (nw === w && nh === h) return { data: rgba, w, h };
+  const out = new Uint8ClampedArray(nw * nh * 4);
+  for (let y = 0; y < nh; y++) {
+    const srcRow = (top + y) * stride + left * 4;
+    out.set(rgba.subarray(srcRow, srcRow + nw * 4), y * nw * 4);
+  }
+  return { data: out, w: nw, h: nh };
+}
+
 /** Simple threshold — for line art / QR / text that must stay crisp. */
 export function threshold(gray: Gray, blackBelow = 128): Bitmap {
   return packBits(gray.data, gray.width, gray.height, (v) => v < blackBelow);

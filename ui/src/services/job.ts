@@ -6,7 +6,7 @@
  */
 import { computed, reactive } from 'vue';
 import { deflateRaw as pakoDeflateRaw } from 'pako';
-import { toGray, scaleGray, threshold, ditherFloydSteinberg, type Bitmap } from './raster';
+import { toGray, scaleGray, threshold, ditherFloydSteinberg, trimWhiteBorders, type Bitmap } from './raster';
 import {
   CMD, encodeJob, writeChunk, finishJob, cat, type ByteSink,
 } from './printer-protocol';
@@ -75,7 +75,7 @@ function renderPreviewUrl(rgba: Uint8ClampedArray, w: number, h: number): string
   // white background so transparent areas read as paper
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, w, h);
-  const img = new ImageData(rgba as unknown as ImageDataArray, w, h);
+  const img = new ImageData(new Uint8ClampedArray(rgba), w, h);
   ctx.putImageData(img, 0, 0);
   return previewCanvas.toDataURL('image/png');
 }
@@ -116,6 +116,12 @@ async function loadImage(uri: string): Promise<void> {
   ctx.drawImage(img, 0, 0);
   let rgba = ctx.getImageData(0, 0, w, h).data;
   console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
+  // crop white margins like the vendor app, so ink fills the 384-dot width
+  const trimmed = trimWhiteBorders(rgba, w, h, 8);
+  if (trimmed.w !== w || trimmed.h !== h) {
+    console.log('[lidlprint] trimmed to', trimmed.w, 'x', trimmed.h);
+    w = trimmed.w; h = trimmed.h; rgba = new Uint8ClampedArray(trimmed.data);
+  }
   if (w > h) {
     // rotate 90° clockwise for preview, matching the print orientation
     const r = new Uint8ClampedArray(rgba.length);
