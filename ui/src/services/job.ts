@@ -329,9 +329,17 @@ async function doPrint(): Promise<void> {
     //    header mode byte carries it; sending 10FF1000n prints garbage here)
     // 3. build bitmap + job
     const bitmap = rasterize();
-    const chunks = encodeJob(bitmap.data, bitmap.height, {
+    // append ~10mm (80 dot-lines) of blank paper feed to the bitmap itself
+    const blank = new Uint8Array(bitmap.bytesPerRow * 80); // 1 = black; 0 = blank rows? no:
+    // NOTE: bit=1 prints black. Blank feed rows must be 0x00 bytes? 1bpp: bit=1 is black,
+    // so blank = all zero BITS => byte 0x00. Uint8Array inits to 0. good.
+    const full = new Uint8Array(bitmap.data.length + blank.length);
+    full.set(bitmap.data, 0);
+    full.set(blank, bitmap.data.length);
+    const totalRows = bitmap.height + 80;
+    const chunks = encodeJob(full, totalRows, {
       gen: 2,
-      deflate: (d) => pakoDeflateRaw(d),
+      deflate: (d) => pakoDeflateRaw(d, { level: 1 }) as Uint8Array,
       // feed 80 dots as the vendor app does
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
@@ -357,8 +365,8 @@ async function doPrint(): Promise<void> {
     }
     job.progress = 100;
     say('Printed ✓');
-    // 6. stateless policy: disconnect
-    await useBt().disconnect('Printed ✓ (disconnected)');
+    // keep the connection alive (user request); it drops on printer auto-off
+
   } catch (e) {
     say(`Print failed: ${String(e)}`, true);
   } finally {
