@@ -241,8 +241,29 @@ async function doPrint(): Promise<void> {
   job.printing = true;
   job.progress = 0;
   try {
+    // 0. warm-up: vendor app queries status right after connect; the printer
+    // closes SPP sockets that stay silent, so ping first and reconnect if dead.
+    const bt = useBt();
+    let sink = makeSink();
+    let alive = false;
+    try {
+      await sink.write(CMD.getBattery);
+      const warm = await readSome(sink);
+      alive = warm.length > 0;
+    } catch { alive = false; }
+    if (!alive) {
+      say('Reconnecting to printer…');
+      await bt.disconnect(''); 
+      if (!(await bt.connect())) return;
+      sink = makeSink();
+      await sink.write(CMD.getBattery);
+      const warm2 = await readSome(sink);
+      if (warm2.length === 0) {
+        say('Printer is not responding.', true);
+        return;
+      }
+    }
     // 1. paper check
-    const sink = makeSink();
     await sink.write(CMD.getPaperStatus);
     const paper = await readSome(sink);
     job.paperOk = paper.length > 0 && paper[paper.length - 1] !== 0x04;
