@@ -131,33 +131,42 @@ declare global {
   }
 }
 
-// Native side (ShareIntentHandler.java) calls this hook; we stage the payload
-// and consume it from the page lifecycle.
-window.__onLidlPrintShare = (data: { uri?: string; text?: string }) => {
-  console.log('[lidlprint] share hook fired:', JSON.stringify(data));
-  window.LidlPrintShare = data;
-};
+// ---------------------------------------------------------------- share intake
+// Mirrors zik4: darryncampbell intent-shim (getIntent = cold start,
+// onIntent = warm singleTask delivery). The native ShareIntentHandler is gone.
 
-export async function consumeShare(): Promise<void> {
-  console.log('[lidlprint] consumeShare:', JSON.stringify(window.LidlPrintShare ?? null),
-    'at', location.hash);
-  const shared = window.LidlPrintShare;
-  if (!shared) return;
-  try {
-    if (shared.uri) {
-      await loadImage(shared.uri);
-      delete window.LidlPrintShare;
-    } else if (shared.text) {
-      textToPreview(shared.text);
-      delete window.LidlPrintShare;
-    }
-    // on failure we KEEP the payload: the user can retry by reopening the
-    // page, and the diagnostic message says what went wrong
-  } catch (e) {
-    console.log('[lidlprint] consumeShare error:', String(e));
-    useBt().say(`Could not open shared content: ${String(e)}`, true);
+declare global {
+  interface Window {
+    plugins?: {
+      intentShim?: {
+        getIntent(ok: (i: any) => void, err: (e: any) => void): void;
+        onIntent(cb: (i: any) => void): void;
+      };
+    };
   }
 }
+
+function decodeShareIntent(intent: any): void {
+  console.log('[lidlprint] intent:', JSON.stringify(intent, null, 2));
+  const type: string = intent?.type ?? '';
+  const uri: string | undefined = intent?.url ?? intent?.data;
+  const text = intent?.extras?.['android.intent.extra.TEXT'];
+  if (type.startsWith('image/') && uri) {
+    void loadImage(uri);
+  } else if (type.startsWith('text/') && text) {
+    textToPreview(text);
+  } else {
+    useBt().say(`Unsupported share (type=${type || 'none'})`, true);
+  }
+}
+
+export async function consumeShare(): Promise<void> {
+  const shim = window.plugins?.intentShim;
+  if (!shim) return; // web/dev
+  shim.getIntent((intent) => decodeShareIntent(intent), () => {});
+  shim.onIntent((intent) => decodeShareIntent(intent));
+}
+
 const TEXT_FONT_PX = 24;
 const TEXT_MAX_ROWS = 20 * 48; // ~20 text lines worth of head height
 
