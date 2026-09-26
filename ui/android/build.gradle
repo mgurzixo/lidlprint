@@ -9,6 +9,14 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.9.2'
         classpath 'com.google.gms:google-services:4.4.4'
+        // AS on this machine supports max AGP 8.9.2 — force EVERY submodule
+        // (capacitor-cordova-android-plugins regenerates with newer) down to 8.9.2.
+        def agp = 'com.android.tools.build:gradle:8.9.2'
+        configurations.all { resolutionStrategy.eachDependency { d ->
+            if (d.requested.group == 'com.android.tools.build' && d.requested.name == 'gradle') {
+                d.useVersion '8.9.2'
+            }
+        } }
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
