@@ -323,7 +323,10 @@ async function doPrint(): Promise<void> {
 (window as any).__replayCapture = async function () {
   const btMod: any = await import('./bt');
   const store = btMod.bt;
-  if (store.state !== 'connected') return 'not connected';
+  // always start from a FRESH connection: the printer drops idle SPP in seconds
+  if (store.state === 'connected') await btMod.useBt().disconnect('');
+  if (!(await btMod.useBt().connect())) return 'connect failed';
+  console.log('[lidlprint] replay: connected, streaming immediately');
   // captured SPP stream (from spp_sent2.bin, 226-row hello world)
   const hex = await (await fetch('/spp_sent2.hex')).text();
   const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
