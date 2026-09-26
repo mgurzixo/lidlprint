@@ -36,20 +36,6 @@
     <!-- ③ Controls + ④ Print -->
     <div class="controls q-px-md q-pb-md q-gutter-y-sm">
       <q-btn-toggle
-        v-model="density"
-        class="full-width"
-        no-caps
-        unelevated
-        toggle-color="primary"
-        color="grey-3"
-        text-color="grey-9"
-        :options="[
-          { label: 'Light', value: 0 },
-          { label: 'Medium', value: 1 },
-          { label: 'Dark', value: 2 },
-        ]"
-      />
-      <q-btn-toggle
         v-model="dither"
         class="full-width"
         no-caps
@@ -58,8 +44,8 @@
         color="grey-3"
         text-color="grey-9"
         :options="[
-          { label: 'Photo', value: 'photo' },
-          { label: 'Art', value: 'art' },
+          { label: 'Photo (dithered)', value: 'photo' },
+          { label: 'Art (crisp)', value: 'art' },
         ]"
       />
       <q-btn

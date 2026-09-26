@@ -271,8 +271,8 @@ async function doPrint(): Promise<void> {
       say('No paper.', true);
       return;
     }
-    // 2. density
-    await sink.write(cat(CMD.setDensity(job.density)));
+    // 2. (density: gen-2 has no verified density command in captures — the
+    //    header mode byte carries it; sending 10FF1000n prints garbage here)
     // 3. build bitmap + job
     const bitmap = rasterize();
     const chunks = encodeJob(bitmap.data, bitmap.height, {
