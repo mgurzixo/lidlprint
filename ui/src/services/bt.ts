@@ -8,6 +8,7 @@
  * disconnect after print or via explicit user tap.
  */
 import { reactive } from 'vue';
+import { registerPlugin } from '@capacitor/core';
 
 export type BtState = 'disconnected' | 'connecting' | 'connected';
 
@@ -28,18 +29,23 @@ interface BtPlugin {
 
 declare global {
   interface Window {
-    Capacitor?: { Plugins?: Record<string, BtPlugin> };
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      convertFileSrc?: (filePath: string) => string;
+      Plugins?: Record<string, unknown>;
+    };
     // web/dev stub injections for manual testing
     LidlPrintShare?: { uri?: string; text?: string };
   }
 }
 
+// registerPlugin resolves the native plugin in APK builds AND creates a working
+// proxy under `quasar dev` (manual registerPlugin in MainActivity is native-side
+// only — the JS side needs this registration too).
+const BluetoothClassic = registerPlugin<BtPlugin>('BluetoothClassic');
+
 function plugin(): BtPlugin {
-  const p = window.Capacitor?.Plugins?.BluetoothClassic;
-  if (!p) {
-    throw new Error('BluetoothClassic plugin not available (web/dev build?)');
-  }
-  return p;
+  return BluetoothClassic;
 }
 
 // ---- base64 helpers (bridge carries base64 to avoid UTF-8 corruption) ----
@@ -93,25 +99,13 @@ export function useBt() {
       return (await plugin().listBonded()).devices;
     },
     async openPairingSettings(): Promise<void> {
-      // HMR / cold-start race: Capacitor global may lag the Vue app briefly
-      let p = window.Capacitor?.Plugins?.BluetoothClassic;
-      for (let i = 0; i < 10 && !p; i++) {
-        await new Promise((r) => setTimeout(r, 200));
-        p = window.Capacitor?.Plugins?.BluetoothClassic;
+      try {
+        await plugin().openPairingSettings?.();
+        return;
+      } catch (e) {
+        console.log('[lidlprint] openPairingSettings rejected:', String(e));
+        say(`Could not open Bluetooth settings: ${String(e)}`, true);
       }
-      console.log('[lidlprint] openPairingSettings: plugin =', !!p, 'method =', typeof p?.openPairingSettings);
-      if (p?.openPairingSettings) {
-        try {
-          await p.openPairingSettings();
-          console.log('[lidlprint] openPairingSettings: native resolved');
-          return;
-        } catch (e) {
-          console.log('[lidlprint] openPairingSettings: native rejected:', String(e));
-          say(`Could not open Bluetooth settings: ${String(e)}`, true);
-          return;
-        }
-      }
-      say('Open Android Settings → Connected devices → Pair new device.', true);
     },
     selectPrinter(d: BondedDevice) {
       bt.device = d;
