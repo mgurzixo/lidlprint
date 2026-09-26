@@ -282,7 +282,7 @@ async function doPrint(): Promise<void> {
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
     {
-      const img = chunks[1];
+      const img = chunks[1]!;
       (window as any).__lastJob = chunks; // for devtools: inspect/replay
       console.log('[lidlprint] job: img chunk len', img.length,
         'hdr', Array.from(img.subarray(0, 12)).map(b => b.toString(16).padStart(2, '0')).join(' '),
