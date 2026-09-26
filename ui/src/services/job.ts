@@ -152,22 +152,54 @@ declare global {
 function decodeShareIntent(intent: any): void {
   console.log('[lidlprint] intent:', JSON.stringify(intent, null, 2));
   const type: string = intent?.type ?? '';
+
+  // Collect EVERY plausible image-uri candidate, in priority order. Different
+  // senders put the payload in different places (url, data, EXTRA_STREAM,
+  // clipItems) — take the first that actually decodes.
+  const candidates: string[] = [];
+  const push = (u: unknown) => {
+    if (typeof u === 'string' && u.length > 0 && !candidates.includes(u)) candidates.push(u);
+  };
+  push(intent?.url);
+  push(intent?.data);
+  push(intent?.extras?.['android.intent.extra.STREAM']);
+  for (const item of intent?.clipItems ?? []) {
+    if (item?.type?.startsWith('image/') || !item?.type) push(item?.uri);
+  }
+
   const text = intent?.extras?.['android.intent.extra.TEXT'];
-  // intent-shim: STREAM arrives in extras AND (for clipItems) as clipItems[].uri
-  const uri: string | undefined =
-    intent?.url ??
-    intent?.data ??
-    intent?.extras?.['android.intent.extra.STREAM'] ??
-    intent?.clipItems?.[0]?.uri;
-  console.log('[lidlprint] decode: type =', type, 'uri =', uri, 'text =', text ? text.slice(0, 40) : undefined);
-  if (type.startsWith('image/') && uri) {
-    void loadImage(uri);
+
+  if (type.startsWith('image/')) {
+    if (candidates.length === 0) {
+      useBt().say('Share contained no image URI.', true);
+      return;
+    }
+    void loadImageWithFallbacks(candidates);
   } else if (type.startsWith('text/') && text) {
     textToPreview(text);
+  } else if (candidates.length > 0) {
+    void loadImageWithFallbacks(candidates); // unknown type but has a URI — try it
   } else {
     useBt().say(`Unsupported share (type=${type || 'none'})`, true);
   }
 }
+
+/** Try each URI in order until one decodes; banner shows the last failure. */
+async function loadImageWithFallbacks(candidates: string[]): Promise<void> {
+  let lastErr: unknown;
+  for (const uri of candidates) {
+    try {
+      await loadImage(uri);
+      console.log('[lidlprint] loaded candidate:', uri.slice(0, 60));
+      return;
+    } catch (e) {
+      console.log('[lidlprint] candidate failed:', uri.slice(0, 60), String(e));
+      lastErr = e;
+    }
+  }
+  useBt().say(`Could not load shared image: ${String(lastErr)}`, true);
+}
+
 
 export async function consumeShare(): Promise<void> {
   const shim = window.plugins?.intentShim;
