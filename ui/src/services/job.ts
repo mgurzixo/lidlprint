@@ -34,7 +34,7 @@ export const job = reactive({
     rows: 0,
   } as PreviewState,
   density: 1 as 0 | 1 | 2,
-  dither: 'photo' as 'photo' | 'art',
+  dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art') || 'art',
   printing: false,
   progress: 0, // 0..100
   paperOk: true,
@@ -109,9 +109,7 @@ async function loadImage(uri: string): Promise<void> {
   ctx.drawImage(img, 0, 0);
   const rgba = ctx.getImageData(0, 0, w, h).data;
   console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
-  // heuristic per SPEC §3.3: small PNG → art
-  const isPng = uri.startsWith('data:image/png') || uri.toLowerCase().endsWith('.png');
-  job.dither = isPng && countColors(rgba) <= 64 ? 'art' : 'photo';
+  // dither choice is user-persistent; no auto-switch
   setPreview(rgba, w, h, src.startsWith('blob:') || src.startsWith('data:') ? src : undefined);
 }
 
@@ -216,7 +214,10 @@ export function useJob() {
     }),
     dither: computed({
       get: () => job.dither,
-      set: (v: 'photo' | 'art') => (job.dither = v),
+      set: (v: 'photo' | 'art') => {
+        job.dither = v;
+        localStorage.setItem('lidlprint.dither', v);
+      },
     }),
     printLabel: computed(() =>
       job.printing ? `Printing… ${job.progress}%` : 'Print',
@@ -316,6 +317,23 @@ async function doPrint(): Promise<void> {
     job.printing = false;
   }
 }
+
+// Replay the exact captured vendor "hello world" job (doc/RE doc §4).
+// console: (await __replayCapture())  — needs printer connected.
+(window as any).__replayCapture = async function () {
+  const btMod: any = await import('./bt');
+  const store = btMod.bt;
+  if (store.state !== 'connected') return 'not connected';
+  // captured SPP stream (from spp_sent2.bin, 226-row hello world)
+  const hex = await (await fetch('/spp_sent2.hex')).text();
+  const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
+  const sink = makeSink();
+  const { writeChunk } = await import('./printer-protocol');
+  await writeChunk(sink, bytes, { chunkSize: 122, ackTimeoutMs: 1000, paceMs: 20 });
+  const { finishJob } = await import('./printer-protocol');
+  const ok = await finishJob(sink, 10000);
+  return ok ? 'replay done' : 'no ready sentinel';
+};
 
 // minimal SPP sink over the capacitor bridge
 function makeSink(): ByteSink {
