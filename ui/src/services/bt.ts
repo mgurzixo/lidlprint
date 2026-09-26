@@ -25,6 +25,7 @@ interface BtPlugin {
   read(options: { timeoutMs: number }): Promise<{ data: string /* base64, may be empty */ }>;
   isConnected(): Promise<{ connected: boolean }>;
   openPairingSettings?(): Promise<void>;
+  readContentUri(options: { url: string }): Promise<{ data: string }>;
 }
 
 declare global {
@@ -57,6 +58,11 @@ export function b64FromBytes(bytes: Uint8Array): string {
     bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(bin);
+}
+
+export async function readContentUri(url: string): Promise<string> {
+  const res = await plugin().readContentUri({ url });
+  return res.data; // base64
 }
 
 export function bytesFromB64(b64: string): Uint8Array {

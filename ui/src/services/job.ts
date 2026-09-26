@@ -10,7 +10,7 @@ import { toGray, scaleGray, threshold, ditherFloydSteinberg, type Bitmap } from 
 import {
   CMD, encodeJob, writeChunk, finishJob, cat, SPP_CHUNK, type ByteSink,
 } from './printer-protocol';
-import { bt as btStore, useBt, b64FromBytes, bytesFromB64, btPlugin } from './bt';
+import { bt as btStore, useBt, b64FromBytes, bytesFromB64, btPlugin, readContentUri } from './bt';
 
 export const HEAD_WIDTH_PX = 384;
 export const BYTES_PER_ROW = 48;
@@ -80,7 +80,10 @@ async function loadImage(uri: string): Promise<void> {
   // native shares arrive as file:// in the app cache — fetch() it into a
   // blob URL so the <img> decoder works regardless of WebView file policy
   let src = uri;
-  if (uri.startsWith('file:')) {
+  if (uri.startsWith('content:')) {
+    const b64 = await readContentUri(uri);
+    src = `data:image/*;base64,${b64}`;
+  } else if (uri.startsWith('file:')) {
     // WebView served from https://localhost cannot fetch file:// —
     // route through Capacitor's webview proxy
     const cap = window.Capacitor as unknown as {
@@ -149,8 +152,14 @@ declare global {
 function decodeShareIntent(intent: any): void {
   console.log('[lidlprint] intent:', JSON.stringify(intent, null, 2));
   const type: string = intent?.type ?? '';
-  const uri: string | undefined = intent?.url ?? intent?.data;
   const text = intent?.extras?.['android.intent.extra.TEXT'];
+  // intent-shim: STREAM arrives in extras AND (for clipItems) as clipItems[].uri
+  const uri: string | undefined =
+    intent?.url ??
+    intent?.data ??
+    intent?.extras?.['android.intent.extra.STREAM'] ??
+    intent?.clipItems?.[0]?.uri;
+  console.log('[lidlprint] decode: type =', type, 'uri =', uri, 'text =', text ? text.slice(0, 40) : undefined);
   if (type.startsWith('image/') && uri) {
     void loadImage(uri);
   } else if (type.startsWith('text/') && text) {

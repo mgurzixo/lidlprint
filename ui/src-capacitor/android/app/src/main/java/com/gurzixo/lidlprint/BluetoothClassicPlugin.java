@@ -207,6 +207,29 @@ public class BluetoothClassicPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void readContentUri(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("url required");
+            return;
+        }
+        try {
+            android.net.Uri uri = android.net.Uri.parse(url);
+            java.io.InputStream in = getContext().getContentResolver().openInputStream(uri);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            in.close();
+            JSObject ret = new JSObject();
+            ret.put("data", Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP));
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("read failed: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void isConnected(PluginCall call) {
         JSObject ret = new JSObject();
         synchronized (ioLock) {
