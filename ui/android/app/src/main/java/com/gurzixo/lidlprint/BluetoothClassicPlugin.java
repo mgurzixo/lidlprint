@@ -55,6 +55,7 @@ public class BluetoothClassicPlugin extends Plugin {
             return;
         }
         Set<BluetoothDevice> bonded = adapter.getBondedDevices();
+        android.util.Log.d("lidlprint", "bonded=" + bonded.size() + " state=" + adapter.getState());
         JSArray arr = new JSArray();
         for (BluetoothDevice d : bonded) {
             JSObject o = new JSObject();
@@ -83,9 +84,19 @@ public class BluetoothClassicPlugin extends Plugin {
         new Thread(() -> {
             try {
                 synchronized (ioLock) {
-                    socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
-                    adapter.cancelDiscovery();
-                    socket.connect();
+                    try {
+                        socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
+                        try {
+                            adapter.cancelDiscovery(); // needs BLUETOOTH_SCAN; harmless if absent
+                        } catch (SecurityException ignored) { }
+                        socket.connect();
+                    } catch (IOException secureFailed) {
+                        closeLocked();
+                        // many thermal printers only accept insecure RFCOMM (works with
+                        // the OS-held bond key)
+                        socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID);
+                        socket.connect();
+                    }
                     out = socket.getOutputStream();
                     in = socket.getInputStream();
                 }

@@ -27,17 +27,18 @@ interface BtPlugin {
 
 declare global {
   interface Window {
-    BluetoothClassic?: BtPlugin;
+    Capacitor?: { Plugins?: Record<string, BtPlugin> };
     // web/dev stub injections for manual testing
     LidlPrintShare?: { uri?: string; text?: string };
   }
 }
 
 function plugin(): BtPlugin {
-  if (!window.BluetoothClassic) {
+  const p = window.Capacitor?.Plugins?.BluetoothClassic;
+  if (!p) {
     throw new Error('BluetoothClassic plugin not available (web/dev build?)');
   }
-  return window.BluetoothClassic;
+  return p;
 }
 
 // ---- base64 helpers (bridge carries base64 to avoid UTF-8 corruption) ----

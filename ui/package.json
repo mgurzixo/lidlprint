@@ -1,7 +1,7 @@
 {
   "name": "lidlprint",
-  "version": "0.0.1",
-  "description": "A Quasar Project",
+  "version": "0.1.0",
+  "description": "Direct printing to Lidl/Silvercrest Mini Pocket Printer over Bluetooth Classic SPP",
   "productName": "LidlPrint",
   "author": "Gurzixo",
   "type": "module",

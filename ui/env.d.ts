@@ -13,3 +13,6 @@
  * }
  */
 interface ImportMetaEnv {}
+
+// injected via quasar.config.ts build.define
+declare const __APP_VERSION__: string;

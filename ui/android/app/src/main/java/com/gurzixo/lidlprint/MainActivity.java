@@ -10,7 +10,9 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(BluetoothClassicPlugin.class);
         super.onCreate(savedInstanceState);
+        android.webkit.WebView.setWebContentsDebuggingEnabled(true);
         ShareIntentHandler.attach(bridge);
+        android.util.Log.d("lidlprint", "plugin lookup: " + (bridge.getPlugin("BluetoothClassic") != null));
         // cold-start share (activity launched fresh with the share intent)
         ShareIntentHandler.handle(this, getIntent());
     }

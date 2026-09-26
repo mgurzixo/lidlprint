@@ -2,6 +2,10 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file
 
 import { defineConfig } from '#q-app';
+import pkg from './package.json';
+
+// Single source of truth for the version shown in the UI banner.
+const appVersion = pkg.version;
 
 export default defineConfig((/* ctx */) => {
   return {
@@ -52,7 +56,9 @@ export default defineConfig((/* ctx */) => {
       // vueRouterBase,
 
       // publicPath: '/',
-      // define: {},
+      define: {
+        __APP_VERSION__: JSON.stringify(appVersion),
+      },
       // defineEnv: {}
       // ignorePublicFolder: true,
       // minify: false,

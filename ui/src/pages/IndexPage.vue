@@ -12,6 +12,7 @@
         @click="onConnectTap"
       />
       <div class="col msg" :class="msgClass">{{ btMessage }}</div>
+      <div class="col-auto text-caption text-grey-5 self-center">v{{ appVersion }}</div>
     </div>
 
     <!-- ② Preview -->
@@ -77,10 +78,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { bt as btStore, useBt } from '@/services/bt';
 import { useJob } from '@/services/job';
 
 const bt = useBt();
+const router = useRouter();
+const appVersion = __APP_VERSION__;
 const btState = computed(() => btStore.state);
 const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
@@ -102,8 +106,15 @@ const connectColor = computed(() =>
 const msgClass = computed(() => (btIsError.value ? 'text-red' : 'text-grey-8'));
 
 function onConnectTap() {
-  if (btState.value === 'connected') void bt.disconnect('Disconnected');
-  else void bt.connect();
+  if (btState.value === 'connected') {
+    void bt.disconnect('Disconnected');
+    return;
+  }
+  if (!btStore.device) {
+    void router.push('/settings');
+    return;
+  }
+  void bt.connect();
 }
 
 onMounted(() => void consumeShare());

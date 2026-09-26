@@ -76,12 +76,27 @@ function renderPreviewUrl(rgba: Uint8ClampedArray, w: number, h: number): string
 }
 
 async function loadImage(uri: string): Promise<void> {
+  // native shares arrive as file:// in the app cache — fetch() it into a
+  // blob URL so the <img> decoder works regardless of WebView file policy
+  let src = uri;
+  if (uri.startsWith('file:')) {
+    // WebView served from https://localhost cannot fetch file:// —
+    // route through Capacitor's webview proxy
+    const cap = window.Capacitor as unknown as {
+      convertFileSrc?: (p: string) => string;
+    };
+    if (cap.convertFileSrc) {
+      src = cap.convertFileSrc(uri.replace('file://', ''));
+    } else {
+      const blob = await (await fetch(uri)).blob();
+      src = URL.createObjectURL(blob);
+    }
+  }
   const img = new Image();
-  img.decoding = 'sync';
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
     img.onerror = () => reject(new Error('image decode failed'));
-    img.src = uri;
+    img.src = src;
   });
   const w = img.naturalWidth, h = img.naturalHeight;
   const canvas = document.createElement('canvas');
@@ -94,7 +109,7 @@ async function loadImage(uri: string): Promise<void> {
   // heuristic per SPEC §3.3: small PNG → art
   const isPng = uri.startsWith('data:image/png') || uri.toLowerCase().endsWith('.png');
   job.dither = isPng && countColors(rgba) <= 64 ? 'art' : 'photo';
-  setPreview(rgba, w, h, uri.startsWith('blob:') || uri.startsWith('data:') ? uri : undefined);
+  setPreview(rgba, w, h, src.startsWith('blob:') || src.startsWith('data:') ? src : undefined);
 }
 
 function countColors(rgba: Uint8ClampedArray): number {
@@ -127,12 +142,14 @@ export async function consumeShare(): Promise<void> {
   try {
     if (shared.uri) {
       await loadImage(shared.uri);
+      delete window.LidlPrintShare;
     } else if (shared.text) {
       textToPreview(shared.text);
+      delete window.LidlPrintShare;
     }
-    delete window.LidlPrintShare;
+    // on failure we KEEP the payload: the user can retry by reopening the
+    // page, and the diagnostic message says what went wrong
   } catch (e) {
-    delete window.LidlPrintShare;
     useBt().say(`Could not open shared content: ${String(e)}`, true);
   }
 }
