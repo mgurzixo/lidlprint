@@ -80,7 +80,12 @@ export default defineConfig((/* ctx */) => {
     devServer: {
       // vueDevtools: true,
       // https: true,
-      open: true // opens browser window automatically
+      open: false, // no browser window; the device WebView is the client
+      host: '192.168.32.50' // vroum LAN IP — avoids the interactive IP picker
+    },
+
+    bin: {
+      linuxAndroidStudio: '/home/mgouget/android-studio/bin/studio.sh'
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
