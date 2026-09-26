@@ -1,0 +1,35 @@
+{
+  "name": "lidlprint",
+  "version": "0.1.0",
+  "description": "Direct printing to Lidl/Silvercrest Mini Pocket Printer (Karsten International, IAN 508705_2507 / 470561_2407) via Bluetooth Classic SPP — reverse-engineered protocol",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gurzixo/lidlprint.git"
+  },
+  "keywords": [
+    "lidl",
+    "silvercrest",
+    "tronics",
+    "mini-pocket-printer",
+    "thermal-printer",
+    "bluetooth",
+    "spp",
+    "rfcomm",
+    "escpos",
+    "peripage",
+    "karsten",
+    "reverse-engineering"
+  ],
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
+  }
+}
