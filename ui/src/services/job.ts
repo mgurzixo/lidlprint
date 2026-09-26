@@ -50,14 +50,15 @@ function rasterize(): Bitmap {
 
 function setPreview(rgba: Uint8ClampedArray, w: number, h: number, url?: string) {
   const rows = Math.max(1, Math.round((h * HEAD_WIDTH_PX) / w));
-  if (job.preview.url) URL.revokeObjectURL(job.preview.url);
-  job.preview = {
-    url: url ?? renderPreviewUrl(rgba, w, h),
-    rgba,
-    srcW: w,
-    srcH: h,
-    rows,
-  };
+  // mutate, never reassign: useJob() hands the object itself to the template
+  if (job.preview.url && job.preview.url.startsWith('blob:')) {
+    URL.revokeObjectURL(job.preview.url);
+  }
+  job.preview.url = url ?? renderPreviewUrl(rgba, w, h);
+  job.preview.rgba = rgba;
+  job.preview.srcW = w;
+  job.preview.srcH = h;
+  job.preview.rows = rows;
 }
 
 let previewCanvas: HTMLCanvasElement | null = null;
