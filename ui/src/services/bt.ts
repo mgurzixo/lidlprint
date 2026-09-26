@@ -95,18 +95,10 @@ export function useBt() {
     async openPairingSettings(): Promise<void> {
       const p = window.Capacitor?.Plugins?.BluetoothClassic;
       if (p?.openPairingSettings) {
-        try {
-          await p.openPairingSettings();
-          return;
-        } catch { /* fall through */ }
+        await p.openPairingSettings();
+        return;
       }
-      // fallback: generic Android settings (works only in native shell);
-      // in browser just explain
-      if (window.Capacitor?.isNativePlatform?.()) {
-        window.open('about:blank');
-      } else {
-        say('Open Android Settings → Connected devices → Pair new device.', true);
-      }
+      say('Open Android Settings → Connected devices → Pair new device.', true);
     },
     selectPrinter(d: BondedDevice) {
       bt.device = d;
