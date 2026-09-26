@@ -23,9 +23,11 @@ style, documented by bitrate16/eliasweingaertner).
 
 ## 1. Hardware & radio facts
 
-- Thermal, 203 dpi, 1-bit (black/white), 56 mm effective head width
-  → **384 pixels/row** (448 px claimed by arithmetic, but the app uses 384;
-  both fit in 56/57 mm — actual bitmaps: see §4).
+- Thermal, 203 dpi (8 dots/mm), 1-bit (black/white), 48 mm print width
+  across 56-58 mm paper → **384 pixels/row** (48 bytes).
+- Print speed: up to 15 mm/s (=120 dot-lines/s). Effective wire budget at
+  10 mm/s ≈ 6 KB/s — sending faster overruns the printer's small SPP
+  receive buffer (symptom: top of image correct, then noise).
 - Bluetooth **Classic** with SPP (Serial Port Profile) on RFCOMM **channel 1**.
 - The vendor app pairs *itself* (device never appears in Android bonded list
   before first app connect). Device advertises as `Mini Pocket Printer`.

@@ -45,7 +45,10 @@ function rasterize(): Bitmap {
   if (!p.rgba) throw new Error('no image');
   const gray = toGray(p.rgba, p.srcW, p.srcH);
   const scaled = scaleGray(gray, HEAD_WIDTH_PX, p.rows);
-  return job.dither === 'art' ? threshold(scaled) : ditherFloydSteinberg(scaled);
+  const bm = job.dither === 'art' ? threshold(scaled) : ditherFloydSteinberg(scaled);
+  console.log('[lidlprint] rasterize: dither =', job.dither, 'bitmap', bm.width, 'x', bm.height,
+    '(', bm.data.length, 'bytes,', bm.bytesPerRow, 'B/row )');
+  return bm;
 }
 
 function setPreview(rgba: Uint8ClampedArray, w: number, h: number, url?: string) {
@@ -59,6 +62,7 @@ function setPreview(rgba: Uint8ClampedArray, w: number, h: number, url?: string)
   job.preview.srcW = w;
   job.preview.srcH = h;
   job.preview.rows = rows;
+  console.log('[lidlprint] setPreview: src', w, 'x', h, '-> print 384 x', rows, 'dots');
 }
 
 let previewCanvas: HTMLCanvasElement | null = null;
@@ -340,6 +344,7 @@ async function doPrint(): Promise<void> {
     const chunks = encodeJob(full, totalRows, {
       gen: 2,
       deflate: (d) => pakoDeflateRaw(d, { level: 0 }) as Uint8Array,
+      mode: 0x0c, // vendor's choice for photo shares (see vendor_sent_51)
       // feed 80 dots as the vendor app does
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);

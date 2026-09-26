@@ -76,7 +76,7 @@ export function cat(...parts: Uint8Array[]): Uint8Array {
  * traffic shows the printer accepts these canonical values:
  * mode 0x07 (dense/graphic) or 0x02 (light), tail 7B 28 91 / 8B 28 91.
  */
-export function gen2ImageHeader(rows: number, widthBytes = 48, mode: 0x02 | 0x07 = 0x07): Uint8Array {
+export function gen2ImageHeader(rows: number, widthBytes = 48, mode: number = 0x07): Uint8Array {
   const h = new Uint8Array(12);
   h.set(hex('1f1000'), 0);
   h[3] = widthBytes;
@@ -85,7 +85,8 @@ export function gen2ImageHeader(rows: number, widthBytes = 48, mode: 0x02 | 0x07
   h[6] = 0;
   h[7] = 0;
   h[8] = mode;
-  h[9] = mode === 0x07 ? 0x7b : 0x8b; // observed pairings; semantics unknown
+  // observed pairings: 07→7b (dashes/photo gen2), 02→8b (hello), 0c→7f (vendor photo)
+  h[9] = mode === 0x07 ? 0x7b : mode === 0x0c ? 0x7f : 0x8b;
   h[10] = 0x28;
   h[11] = 0x91;
   return h;
@@ -117,7 +118,7 @@ export interface PrintJobOptions {
   /** feed after print, in dots. Default 80 (0x50), as the vendor app sends. */
   feedDots?: number;
   /** gen-2 header mode byte. Default 0x07. */
-  mode?: 0x02 | 0x07;
+  mode?: number;
 }
 
 /**
