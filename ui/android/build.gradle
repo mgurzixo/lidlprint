@@ -15,8 +15,8 @@ buildscript {
 }
 
 // AS on this machine supports max AGP 8.9.2; `cap sync` regenerates
-// capacitor-cordova-android-plugins/build.gradle with 8.13.0 — pin every
-// subproject's buildscript classpath back to the root version.
+// capacitor-cordova-android-plugins/build.gradle with a newer AGP — the
+// Makefile pins it back after every sync, and this force covers leftovers.
 subprojects {
     buildscript {
         repositories {

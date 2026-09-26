@@ -27,6 +27,8 @@ devandroid: sync-dev
 sync-dev:
 	cd $(UI) && npx quasar build -m spa
 	cd $(UI) && npx cap sync android
+	@# pin AGP after regen (AS max 8.9.2)
+	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor-cordova-android-plugins/build.gradle
 
 buildandroid: sync
 	cd $(UI)/android && $(ANDROID_JAVA_ENV) ./gradlew assembleDebug
@@ -36,6 +38,9 @@ buildandroid: sync
 sync:
 	cd $(UI) && npm run build
 	cd $(UI) && npx cap sync android
+	@# cap sync regenerates this file with an AGP version newer than AS supports
+	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor-cordova-android-plugins/build.gradle
+	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor.settings.gradle 2>/dev/null || true
 
 test:
 	node --test --experimental-strip-types test/*.test.ts
