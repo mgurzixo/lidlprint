@@ -151,42 +151,26 @@ export function encodeJob(
 // ---------------------------------------------------------------- transport helpers
 
 /** Max SPP payload per RFCOMM UIH frame observed from the vendor app. */
-export const SPP_CHUNK = 122;
+export const SPP_CHUNK = 255;
 
 /**
- * Send a chunk and WAIT for the printer's single-byte ACK before continuing.
- * The printer prints as it receives (~80 dots/s); the ACK is its
- * "buffer consumed, send more" signal — this IS the flow control.
- * Patience per chunk is generous (dense rows + mechanical feed).
+ * Blast a chunk to the printer like the vendor app does: consecutive
+ * 255-byte writes at full speed, NO per-chunk ACK waiting (the printer
+ * sends no ACKs during image streaming — the '01' bytes are response
+ * prefixes for status queries only). Completion is signaled by the
+ * printer's `AA 0D 0A` after the endJob command (see finishJob).
  */
 export async function writeChunk(
   sink: ByteSink,
   chunk: Uint8Array,
-  opts: { chunkSize?: number; ackTimeoutMs?: number } = {},
+  opts: { chunkSize?: number } = {},
 ): Promise<void> {
   const size = opts.chunkSize ?? SPP_CHUNK;
-  const ackMs = opts.ackTimeoutMs ?? 5000;
   for (let off = 0; off < chunk.length; off += size) {
-    const part = chunk.subarray(off, Math.min(off + size, chunk.length));
-    await sink.write(part);
-    const deadline = Date.now() + ackMs;
-    let acked = false;
-    while (Date.now() < deadline) {
-      const got = await sink.read(); // native poll returns [] after its own 1s loop
-      if (got.length > 0) {
-        acked = true;
-        break;
-      }
-    }
-    if (!acked) {
-      throw new Error(`printer stopped ACKing at byte ${off + part.length}`);
-    }
+    await sink.write(chunk.subarray(off, Math.min(off + size, chunk.length)));
   }
 }
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-/** Send endJob and wait for the printer's AA 0D 0A "ready" sentinel. */
 export async function finishJob(sink: ByteSink, timeoutMs = 10_000): Promise<boolean> {
   await sink.write(CMD.endJob);
   const deadline = Date.now() + timeoutMs;

@@ -8,7 +8,7 @@ import { computed, reactive } from 'vue';
 import { deflateRaw as pakoDeflateRaw } from 'pako';
 import { toGray, scaleGray, threshold, ditherFloydSteinberg, type Bitmap } from './raster';
 import {
-  CMD, encodeJob, writeChunk, finishJob, cat, type ByteSink,
+  CMD, encodeJob, writeChunk, finishJob, cat, SPP_CHUNK, type ByteSink,
 } from './printer-protocol';
 import { bt as btStore, useBt, b64FromBytes, bytesFromB64, btPlugin } from './bt';
 
@@ -292,10 +292,7 @@ async function doPrint(): Promise<void> {
     // 4. send with ACK pacing
     let sent = 0;
     for (const chunk of chunks) {
-      await writeChunk(sink, chunk, {
-        chunkSize: 122,
-        ackTimeoutMs: 5000,
-      });
+      await writeChunk(sink, chunk, { chunkSize: SPP_CHUNK });
       sent += chunk.length;
       job.progress = Math.min(99, Math.round((sent / total) * 100));
     }
@@ -330,7 +327,7 @@ async function doPrint(): Promise<void> {
   const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
   const sink = makeSink();
   const { writeChunk } = await import('./printer-protocol');
-  await writeChunk(sink, bytes, { chunkSize: 122, ackTimeoutMs: 5000 });
+  await writeChunk(sink, bytes, { chunkSize: SPP_CHUNK });
   const { finishJob } = await import('./printer-protocol');
   const ok = await finishJob(sink, 10000);
   return ok ? 'replay done' : 'no ready sentinel';
