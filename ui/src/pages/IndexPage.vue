@@ -119,7 +119,7 @@ onMounted(() => void consumeShare());
 <style scoped>
 .page {
   background: #fafafa;
-  // Android 15 edge-to-edge: keep clear of the status bar / camera cutout
+  /* Android 15 edge-to-edge: keep clear of the status bar / camera cutout */
   padding-top: env(safe-area-inset-top);
 }
 .banner {
