@@ -93,13 +93,20 @@ export function useBt() {
       return (await plugin().listBonded()).devices;
     },
     async openPairingSettings(): Promise<void> {
-      const p = plugin();
-      if (p.openPairingSettings) {
-        await p.openPairingSettings();
-        return;
+      const p = window.Capacitor?.Plugins?.BluetoothClassic;
+      if (p?.openPairingSettings) {
+        try {
+          await p.openPairingSettings();
+          return;
+        } catch { /* fall through */ }
       }
-      // web/dev fallback
-      window.open('https://support.google.com/android/answer/9075928', '_blank');
+      // fallback: generic Android settings (works only in native shell);
+      // in browser just explain
+      if (window.Capacitor?.isNativePlatform?.()) {
+        window.open('about:blank');
+      } else {
+        say('Open Android Settings → Connected devices → Pair new device.', true);
+      }
     },
     selectPrinter(d: BondedDevice) {
       bt.device = d;
