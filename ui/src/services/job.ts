@@ -107,15 +107,31 @@ async function loadImage(uri: string): Promise<void> {
       reject(new Error(`image decode failed (${src.slice(0, 40)}…, is ${uri.slice(0, 40)}…)`));
     img.src = src;
   });
-  const w = img.naturalWidth, h = img.naturalHeight;
+  let w = img.naturalWidth, h = img.naturalHeight;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('no 2d context');
   ctx.drawImage(img, 0, 0);
-  const rgba = ctx.getImageData(0, 0, w, h).data;
+  let rgba = ctx.getImageData(0, 0, w, h).data;
   console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
+  if (w > h) {
+    // rotate 90° clockwise for preview, matching the print orientation
+    const r = new Uint8ClampedArray(rgba.length);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const src = (y * w + x) * 4;
+        const dst = (x * h + (h - 1 - y)) * 4;
+        r[dst] = rgba[src]!;
+        r[dst + 1] = rgba[src + 1]!;
+        r[dst + 2] = rgba[src + 2]!;
+        r[dst + 3] = rgba[src + 3]!;
+      }
+    }
+    const tw = w; w = h; h = tw;
+    rgba = r;
+  }
   // dither choice is user-persistent; no auto-switch
   setPreview(rgba, w, h, src.startsWith('blob:') || src.startsWith('data:') ? src : undefined);
 }
