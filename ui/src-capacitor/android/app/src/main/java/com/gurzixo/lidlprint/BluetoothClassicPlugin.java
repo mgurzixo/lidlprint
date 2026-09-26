@@ -17,6 +17,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,13 +46,29 @@ public class BluetoothClassicPlugin extends Plugin {
 
     @PluginMethod
     public void listBonded(PluginCall call) {
+        if (!hasConnectPermission()) {
+            requestAllPermissions(call, "connectCallback");
+            return;
+        }
+        doListBonded(call);
+    }
+
+    @PermissionCallback
+    private void connectCallback(PluginCall call) {
+        if (!hasConnectPermission()) {
+            call.reject("BLUETOOTH_CONNECT permission denied by user");
+        } else if (call.getMethodName().equals("listBonded")) {
+            doListBonded(call);
+        } else {
+            // connect(): just resolve; the JS layer retries the actual connect
+            call.resolve();
+        }
+    }
+
+    private void doListBonded(PluginCall call) {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter == null) {
             call.reject("no bluetooth adapter");
-            return;
-        }
-        if (!hasConnectPermission()) {
-            call.reject("BLUETOOTH_CONNECT permission not granted");
             return;
         }
         Set<BluetoothDevice> bonded = adapter.getBondedDevices();
@@ -76,7 +93,7 @@ public class BluetoothClassicPlugin extends Plugin {
             return;
         }
         if (!hasConnectPermission()) {
-            call.reject("BLUETOOTH_CONNECT permission not granted");
+            requestAllPermissions(call, "connectCallback");
             return;
         }
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();

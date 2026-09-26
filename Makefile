@@ -7,6 +7,7 @@
 # buildandroid: full SPA build + cap sync + assembleDebug + adb install.
 
 UI := ui
+CAP := ui/src-capacitor/android
 ANDROID_JAVA_HOME=$(strip $(shell if [ -n "$$JAVA_HOME" ]; then printf '%s' "$$JAVA_HOME"; elif [ -d "$(HOME)/android-studio/jbr" ]; then printf '%s' "$(HOME)/android-studio/jbr"; elif [ -d "/opt/android-studio/jbr" ]; then printf '%s' "/opt/android-studio/jbr"; fi))
 ANDROID_JAVA_ENV=$(if $(strip $(ANDROID_JAVA_HOME)),JAVA_HOME="$(ANDROID_JAVA_HOME)" PATH="$(ANDROID_JAVA_HOME)/bin:$$PATH",)
 
@@ -27,17 +28,19 @@ devandroid: sync-dev
 sync-dev:
 	cd $(UI) && npx quasar build -m spa
 	cd $(UI) && npx cap sync android
-	@# pin AGP after regen (AS max 8.9.2)
-	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor-cordova-android-plugins/build.gradle
+	@# pin AGP after regen (installed AS supports max 8.9.2)
+	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(CAP)/capacitor-cordova-android-plugins/build.gradle
 
 buildandroid: sync
-	cd $(UI)/android && $(ANDROID_JAVA_ENV) ./gradlew assembleDebug
-	adb install -r $(UI)/android/app/build/outputs/apk/debug/app-debug.apk
+	cd $(CAP) && $(ANDROID_JAVA_ENV) ./gradlew assembleDebug
+	adb install -r $(CAP)/app/build/outputs/apk/debug/app-debug.apk
 	@echo "--- installed. launch: adb shell monkey -p com.gurzixo.lidlprint -c android.intent.category.LAUNCHER 1"
 
 sync:
 	cd $(UI) && npm run build
 	cd $(UI) && npx cap sync android
+	@# cap sync regenerates this with a newer AGP than the installed AS supports
+	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(CAP)/capacitor-cordova-android-plugins/build.gradle
 	@# cap sync regenerates this file with an AGP version newer than AS supports
 	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor-cordova-android-plugins/build.gradle
 	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor.settings.gradle 2>/dev/null || true
