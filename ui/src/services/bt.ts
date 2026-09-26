@@ -93,7 +93,12 @@ export function useBt() {
       return (await plugin().listBonded()).devices;
     },
     async openPairingSettings(): Promise<void> {
-      const p = window.Capacitor?.Plugins?.BluetoothClassic;
+      // HMR / cold-start race: Capacitor global may lag the Vue app briefly
+      let p = window.Capacitor?.Plugins?.BluetoothClassic;
+      for (let i = 0; i < 10 && !p; i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        p = window.Capacitor?.Plugins?.BluetoothClassic;
+      }
       console.log('[lidlprint] openPairingSettings: plugin =', !!p, 'method =', typeof p?.openPairingSettings);
       if (p?.openPairingSettings) {
         try {
