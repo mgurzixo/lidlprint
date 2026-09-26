@@ -97,11 +97,7 @@ const connectLabel = computed(() => {
   return 'Connect';
 });
 const connectColor = computed(() =>
-  btState.value === 'connected'
-    ? 'positive'
-    : btState.value === 'connecting'
-      ? 'grey-5'
-      : 'white',
+  btState.value === 'connected' ? 'positive' : 'grey-5',
 );
 const msgClass = computed(() => (btIsError.value ? 'text-red' : 'text-grey-8'));
 

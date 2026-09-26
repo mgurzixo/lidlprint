@@ -57,9 +57,7 @@ export default defineConfig((/* ctx */) => {
       // vueRouterBase,
 
       // publicPath: '/',
-      define: {
-        __APP_VERSION__: JSON.stringify(appVersion),
-      },
+      // viteConf (extendViteConf) defines __APP_VERSION__ below
       // defineEnv: {}
       // ignorePublicFolder: true,
       // minify: false,
@@ -74,7 +72,11 @@ export default defineConfig((/* ctx */) => {
 
       // vitePlugins: [
       //   [ 'package-name', { ..pluginOptions.. }, { server: true, client: true } ]
-      // ]
+      // ],
+      extendViteConf(viteConf) {
+        viteConf.define = viteConf.define ?? {};
+        viteConf.define.__APP_VERSION__ = JSON.stringify(appVersion);
+      },
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
@@ -94,7 +96,7 @@ export default defineConfig((/* ctx */) => {
         "/usr/local/android-studio/bin/studio.sh",
         process.env.HOME + "/android-studio/bin/studio.sh",
         "/snap/bin/android-studio",
-      ].find((p) => p && fs.existsSync(p)),
+      ].find((p) => p && fs.existsSync(p)) as string,
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework

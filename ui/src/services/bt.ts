@@ -72,7 +72,7 @@ function loadSavedPrinter(): BondedDevice | null {
 
 export const bt = reactive({
   state: 'disconnected' as BtState,
-  message: 'Ready.',
+  message: 'Make sure that the printer is ON.',
   isError: false,
   device: loadSavedPrinter() as BondedDevice | null,
 });

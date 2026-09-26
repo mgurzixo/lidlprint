@@ -95,7 +95,8 @@ async function loadImage(uri: string): Promise<void> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
-    img.onerror = () => reject(new Error('image decode failed'));
+    img.onerror = () =>
+      reject(new Error(`image decode failed (${src.slice(0, 40)}…, is ${uri.slice(0, 40)}…)`));
     img.src = src;
   });
   const w = img.naturalWidth, h = img.naturalHeight;
@@ -106,6 +107,7 @@ async function loadImage(uri: string): Promise<void> {
   if (!ctx) throw new Error('no 2d context');
   ctx.drawImage(img, 0, 0);
   const rgba = ctx.getImageData(0, 0, w, h).data;
+  console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
   // heuristic per SPEC §3.3: small PNG → art
   const isPng = uri.startsWith('data:image/png') || uri.toLowerCase().endsWith('.png');
   job.dither = isPng && countColors(rgba) <= 64 ? 'art' : 'photo';
@@ -150,6 +152,7 @@ export async function consumeShare(): Promise<void> {
     // on failure we KEEP the payload: the user can retry by reopening the
     // page, and the diagnostic message says what went wrong
   } catch (e) {
+    console.log('[lidlprint] consumeShare error:', String(e));
     useBt().say(`Could not open shared content: ${String(e)}`, true);
   }
 }
@@ -189,11 +192,13 @@ function textToPreview(text: string): void {
 }
 
 export function pickImage(): void {
+  console.log('[lidlprint] pickImage: opening file dialog');
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
   input.onchange = () => {
     const file = input.files?.[0];
+    console.log('[lidlprint] pickImage: picked', file?.name, file?.size);
     if (file) void loadImage(URL.createObjectURL(file));
   };
   input.click();
