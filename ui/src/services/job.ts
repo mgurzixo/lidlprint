@@ -339,7 +339,7 @@ async function doPrint(): Promise<void> {
     const totalRows = bitmap.height + 80;
     const chunks = encodeJob(full, totalRows, {
       gen: 2,
-      deflate: (d) => pakoDeflateRaw(d, { level: 1 }) as Uint8Array,
+      deflate: (d) => pakoDeflateRaw(d, { level: 0 }) as Uint8Array,
       // feed 80 dots as the vendor app does
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
