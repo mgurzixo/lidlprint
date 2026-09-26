@@ -94,9 +94,17 @@ export function useBt() {
     },
     async openPairingSettings(): Promise<void> {
       const p = window.Capacitor?.Plugins?.BluetoothClassic;
+      console.log('[lidlprint] openPairingSettings: plugin =', !!p, 'method =', typeof p?.openPairingSettings);
       if (p?.openPairingSettings) {
-        await p.openPairingSettings();
-        return;
+        try {
+          await p.openPairingSettings();
+          console.log('[lidlprint] openPairingSettings: native resolved');
+          return;
+        } catch (e) {
+          console.log('[lidlprint] openPairingSettings: native rejected:', String(e));
+          say(`Could not open Bluetooth settings: ${String(e)}`, true);
+          return;
+        }
       }
       say('Open Android Settings → Connected devices → Pair new device.', true);
     },

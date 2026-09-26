@@ -174,15 +174,23 @@ public class BluetoothClassicPlugin extends Plugin {
 
     @PluginMethod
     public void openPairingSettings(PluginCall call) {
+        android.util.Log.d("lidlprint", "openPairingSettings called");
         if (!hasConnectPermission()) {
+            android.util.Log.d("lidlprint", "no BLUETOOTH_CONNECT permission");
             call.reject("BLUETOOTH_CONNECT permission not granted");
             return;
         }
         getActivity().runOnUiThread(() -> {
-            android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-            call.resolve();
+            try {
+                android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS);
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                android.util.Log.d("lidlprint", "settings activity launched");
+                call.resolve();
+            } catch (Exception e) {
+                android.util.Log.d("lidlprint", "startActivity failed: " + e);
+                call.reject("startActivity failed: " + e.getMessage());
+            }
         });
     }
 
