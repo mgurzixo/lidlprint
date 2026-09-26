@@ -134,10 +134,13 @@ declare global {
 // Native side (ShareIntentHandler.java) calls this hook; we stage the payload
 // and consume it from the page lifecycle.
 window.__onLidlPrintShare = (data: { uri?: string; text?: string }) => {
+  console.log('[lidlprint] share hook fired:', JSON.stringify(data));
   window.LidlPrintShare = data;
 };
 
 export async function consumeShare(): Promise<void> {
+  console.log('[lidlprint] consumeShare:', JSON.stringify(window.LidlPrintShare ?? null),
+    'at', location.hash);
   const shared = window.LidlPrintShare;
   if (!shared) return;
   try {

@@ -29,24 +29,38 @@ public final class ShareIntentHandler {
     }
 
     public static void handle(MainActivity activity, Intent intent) {
-        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        android.util.Log.d("lidlprint", "INTENT action=" + intent.getAction()
+                + " type=" + intent.getType()
+                + " cats=" + intent.getCategories()
+                + " extras=" + (intent.getExtras() != null ? intent.getExtras().toString() : "null"));
+        if (intent == null) return;
+        if (!Intent.ACTION_SEND.equals(intent.getAction())) {
+            android.util.Log.d("lidlprint", "not ACTION_SEND, ignored");
+            return;
+        }
         String type = intent.getType() == null ? "" : intent.getType();
         JSObject data = new JSObject();
 
         if (type.startsWith("text/")) {
-            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+            CharSequence t = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+            String text = t == null ? null : t.toString();
             if (text != null && !text.isEmpty()) data.put("text", text);
         } else if (type.startsWith("image/")) {
             Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            android.util.Log.d("lidlprint", "stream uri=" + uri);
             if (uri != null) {
                 // copy into app cache so the WebView can load it without
                 // juggling per-target content-provider permissions
                 Uri local = copyToCache(activity, uri);
+                android.util.Log.d("lidlprint", "cached at=" + local);
                 if (local != null) data.put("uri", local.toString());
             }
         }
 
-        if (!data.has("text") && !data.has("uri")) return;
+        if (!data.has("text") && !data.has("uri")) {
+            android.util.Log.d("lidlprint", "no usable payload extracted");
+            return;
+        }
 
         Bridge bridge = bridgeHolder[0];
         if (bridge == null) {
