@@ -14,6 +14,26 @@ buildscript {
     }
 }
 
+// AS on this machine supports max AGP 8.9.2; `cap sync` regenerates
+// capacitor-cordova-android-plugins/build.gradle with 8.13.0 — pin every
+// subproject's buildscript classpath back to the root version.
+subprojects {
+    buildscript {
+        repositories {
+            google()
+            mavenCentral()
+        }
+        dependencies {
+            classpath 'com.android.tools.build:gradle:8.9.2'
+        }
+        configurations.classpath {
+            resolutionStrategy {
+                force 'com.android.tools.build:gradle:8.9.2'
+            }
+        }
+    }
+}
+
 apply from: "variables.gradle"
 
 allprojects {
