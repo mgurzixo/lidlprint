@@ -8,3 +8,5 @@ android/local.properties
 android/app/src/main/assets/capacitor.config.json
 *.log
 .DS_Store
+
+tmp/
