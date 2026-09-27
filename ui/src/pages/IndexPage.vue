@@ -1,7 +1,7 @@
 <template>
   <q-page class="column page">
     <!-- ① Banner -->
-    <div class="banner row items-center q-gutter-x-sm">
+    <div class="banner row items-center no-wrap q-gutter-x-sm">
       <q-btn
         unelevated
         no-caps
@@ -126,6 +126,7 @@ onMounted(() => void consumeShare());
   padding: 6px 8px;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
+  overflow: hidden;
 }
 .connect-btn {
   min-width: 110px;
@@ -137,7 +138,8 @@ onMounted(() => void consumeShare());
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0; /* allow the flex item to shrink below content width */
+  min-width: 0;
+  flex: 1 1 0; /* force the flex basis to 0 so it can shrink */
 }
 .preview-zone {
   min-height: 0;
