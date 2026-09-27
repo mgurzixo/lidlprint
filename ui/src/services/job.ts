@@ -34,7 +34,7 @@ export const job = reactive({
     rows: 0,
   } as PreviewState,
   density: 1 as 0 | 1 | 2,
-  dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art' | 'qr') || 'qr',
+  dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art') || 'art',
   printing: false,
   progress: 0, // 0..100
   paperOk: true,
@@ -270,6 +270,35 @@ function textToPreview(text: string): void {
   setPreview(rgba, HEAD_WIDTH_PX, h);
 }
 
+/** Clear the current image and return to the initial screen state. */
+export function clearImage(): void {
+  if (job.preview.url) URL.revokeObjectURL(job.preview.url);
+  job.preview.url = '';
+  job.preview.rgba = null;
+  job.preview.srcW = 0;
+  job.preview.srcH = 0;
+  job.preview.rows = 0;
+  useBt().say('Make sure that the printer is ON.');
+}
+
+/** Read an image from the clipboard (if permission granted). */
+export async function pasteImage(): Promise<void> {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const type = item.types.find((t) => t.startsWith('image/'));
+      if (type) {
+        const blob = await item.getType(type);
+        await loadImage(URL.createObjectURL(blob));
+        return;
+      }
+    }
+    useBt().say('No image in clipboard.', true);
+  } catch (e) {
+    useBt().say(`Paste failed: ${String(e)}`, true);
+  }
+}
+
 export function pickImage(): void {
   console.log('[lidlprint] pickImage: opening file dialog');
   const input = document.createElement('input');
@@ -294,7 +323,7 @@ export function useJob() {
     }),
     dither: computed({
       get: () => job.dither,
-      set: (v: 'photo' | 'art' | 'qr') => {
+      set: (v: 'photo' | 'art') => {
         job.dither = v;
         localStorage.setItem('lidlprint.dither', v);
       },
@@ -310,7 +339,8 @@ export function useJob() {
         job.paperOk,
     ),
     doPrint,
-    printQuantized,
+    clearImage,
+    pasteImage,
     pickImage,
     consumeShare,
     loadImage,
@@ -392,26 +422,6 @@ async function sendBitmapJob(bitmapBytes: Uint8Array, rows: number): Promise<boo
   } catch (e) {
     say(`Print failed: ${String(e)}`, true);
     return false;
-  } finally {
-    job.printing = false;
-  }
-}
-
-/** DEBUG: print the loaded preview through the exact quantized path
- *  (nearest 384 + threshold 128 + level-0 deflate + mode 0c/7f2891). */
-export async function printQuantized(): Promise<void> {
-  if (job.printing || !job.preview.rgba) return;
-  const { say } = useBt();
-  job.printing = true;
-  job.progress = 0;
-  try {
-    const bitmap = rasterize();
-    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
-    full.set(bitmap.data, 0);
-    const ok = await sendBitmapJob(full, bitmap.height + 80);
-    if (ok) say('Printed ✓');
-  } catch (e) {
-    say(`Print failed: ${String(e)}`, true);
   } finally {
     job.printing = false;
   }

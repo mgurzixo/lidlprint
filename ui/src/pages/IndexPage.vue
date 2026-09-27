@@ -21,14 +21,18 @@
         <div class="paper relative-position">
           <img :src="preview.url" class="preview-img" alt="print preview" />
         </div>
-        <div class="text-caption text-grey-7 q-mt-sm">
-          prints at 384 × {{ preview.rows }} dots
+        <div class="row items-center justify-between full-width q-mt-sm">
+          <div class="text-caption text-grey-7">
+            prints at 384 × {{ preview.rows }} dots
+          </div>
+          <q-btn no-caps flat color="grey-7" icon="delete" label="Clear" @click="clearImage" />
         </div>
       </template>
       <div v-else class="text-grey-6 text-center q-pa-xl">
-        Share an image to LidlPrint,<br />or pick one
-        <div>
-          <q-btn flat no-caps color="primary" label="Pick image" @click="pickImage" />
+        Share an image to LidlPrint, or use the buttons:
+        <div class="q-gutter-sm q-mt-sm">
+          <q-btn no-caps unelevated color="primary" label="Pick Image" @click="pickImage" />
+          <q-btn no-caps unelevated color="primary" label="Paste image" @click="pasteImage" />
         </div>
       </div>
     </div>
@@ -44,7 +48,6 @@
         color="grey-3"
         text-color="grey-9"
         :options="[
-          { label: 'QR Code', value: 'qr' },
           { label: 'Art (crisp)', value: 'art' },
           { label: 'Photo (dithered)', value: 'photo' },
         ]"
@@ -58,16 +61,6 @@
         :color="canPrint ? 'primary' : 'grey-5'"
         :disable="!canPrint"
         @click="doPrint"
-      />
-      <q-btn
-        class="full-width"
-        no-caps
-        unelevated
-        outline
-        color="deep-orange"
-        label="DEBUG: print quantized bitmap"
-        :disable="btState !== 'connected' || !preview.rgba"
-        @click="printQuantized"
       />
     </div>
   </q-page>
@@ -85,9 +78,18 @@ const appVersion = __APP_VERSION__;
 const btState = computed(() => btStore.state);
 const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
-const { preview, density, dither, printLabel, canPrint, doPrint, pickImage, consumeShare } =
-  useJob();
-const { printQuantized } = useJob();
+const {
+  preview,
+  density,
+  dither,
+  printLabel,
+  canPrint,
+  doPrint,
+  clearImage,
+  pasteImage,
+  pickImage,
+  consumeShare,
+} = useJob();
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
