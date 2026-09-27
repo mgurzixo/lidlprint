@@ -1,7 +1,7 @@
 /**
  * job.ts — print job orchestration + share-intent ingestion.
  *
- * Owns: preview state, density/dither choices, the Print button logic and
+ * Owns: preview state, dither choice, the Print button logic and
  * the full job sequence from doc/SPEC.md §4.3.
  */
 import { computed, reactive } from 'vue';
@@ -33,7 +33,6 @@ export const job = reactive({
     srcH: 0,
     rows: 0,
   } as PreviewState,
-  density: 1 as 0 | 1 | 2,
   dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art') || 'art',
   printing: false,
   progress: 0, // 0..100
@@ -337,10 +336,6 @@ export function pickImage(): void {
 export function useJob() {
   return {
     preview: job.preview,
-    density: computed({
-      get: () => job.density,
-      set: (v: 0 | 1 | 2) => (job.density = v),
-    }),
     dither: computed({
       get: () => job.dither,
       set: (v: 'photo' | 'art') => {

@@ -80,7 +80,6 @@ const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
 const {
   preview,
-  density,
   dither,
   printLabel,
   canPrint,

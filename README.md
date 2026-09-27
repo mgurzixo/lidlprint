@@ -114,12 +114,14 @@ The captures and decoded images live in
 
 ## App (roadmap)
 
-- [x] Protocol decode + verification
-- [ ] `printer-protocol.ts` — protocol encoder (pure TS, tested against captures)
-- [ ] `raster.ts` — image → 384 px → Floyd–Steinberg dither → 1-bpp MSB pack
-- [ ] Capacitor plugin wiring: Bluetooth Classic SPP + share-intent receiver
-- [ ] Print preview & density control
-- [ ] Play Store release
+- [x] Protocol decode + verification (gen-2 "A2Y": SPP/RFCOMM, deflate bitmap)
+- [x] `printer-protocol.ts` — protocol encoder (pure TS, byte-identical vs captures)
+- [x] `raster.ts` — nearest/bilinear scale, threshold + Floyd–Steinberg dither, 1-bpp MSB
+- [x] Capacitor wiring: Bluetooth Classic SPP plugin + share-intent receiver
+- [x] Print preview, Art/Photo modes, paper check, battery warm-up, reconnect
+- [x] Share images from any app (zik4 QR prints at 40 mm, scannable)
+- [x] Pick/paste image, in-app runtime permission dialog, release signing
+- [ ] Play Store / GitHub release
 
 **Android only** — iOS has no Bluetooth Classic API (Apple MFi wall) and
 Web Bluetooth cannot do SPP, so neither a PWA nor iOS can ever reach this

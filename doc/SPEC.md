@@ -157,10 +157,11 @@ android/…/ShareIntentPlugin.kt        onNewIntent → JS event (uri|text)
 
 ## 8. Acceptance
 
-- [ ] Unit: encoder byte-identical to both captured jobs.
-- [ ] Unit: rasterizer round-trip (solid black row → 0x00 bytes; QR sample
+- [x] Unit: encoder byte-identical to both captured jobs.
+- [x] Unit: rasterizer round-trip (solid black row → 0x00 bytes; QR sample
       stays threshold-crisp in art mode).
-- [ ] Device: share a PNG from zik4 → print matches preview.
-- [ ] Device: QR from zik4 scans off the paper (art mode).
-- [ ] Device: banner states all reachable; grey/blue button logic exact.
-- [ ] Device: no-paper and printer-off produce the red messages, no crash.
+- [x] Device: share a PNG from zik4 → print matches preview (40 mm QR).
+- [x] Device: QR from zik4 scans off the paper (art mode) — easily.
+- [x] Device: banner states all reachable; grey/blue button logic exact.
+- [x] Device: no-paper and printer-off produce the red messages, no crash.
+- [x] Device: fresh install → Connect → system BT permission dialog → green.
