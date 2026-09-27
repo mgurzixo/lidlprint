@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "org.capacitor.quasar.lidlprint"
+    namespace = "com.gurzixo.lidlprint"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "org.capacitor.quasar.lidlprint"
+        applicationId "com.gurzixo.lidlprint"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
