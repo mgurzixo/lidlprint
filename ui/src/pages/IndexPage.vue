@@ -137,6 +137,7 @@ onMounted(() => void consumeShare());
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
+  width:150px;
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1 1 0; /* force the flex basis to 0 so it can shrink */

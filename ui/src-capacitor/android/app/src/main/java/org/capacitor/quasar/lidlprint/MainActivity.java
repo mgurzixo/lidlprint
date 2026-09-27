@@ -1,4 +1,4 @@
-package com.gurzixo.lidlprint;
+package org.capacitor.quasar.lidlprint;
 
 import android.os.Bundle;
 

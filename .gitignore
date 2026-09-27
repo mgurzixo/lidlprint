@@ -10,3 +10,6 @@ android/app/src/main/assets/capacitor.config.json
 .DS_Store
 
 tmp/
+
+# signing
+ui/src-capacitor/android/key.properties

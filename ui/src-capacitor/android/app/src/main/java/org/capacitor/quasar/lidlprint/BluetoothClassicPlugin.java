@@ -1,4 +1,4 @@
-package com.gurzixo.lidlprint;
+package org.capacitor.quasar.lidlprint;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;

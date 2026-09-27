@@ -1,14 +1,14 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "org.capacitor.quasar.app"
+    namespace = "org.capacitor.quasar.lidlprint"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "org.capacitor.quasar.app"
+        applicationId "org.capacitor.quasar.lidlprint"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,11 +16,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def keystoreProperties = new Properties()
+            def keystorePropertiesFile = rootProject.file("key.properties")
+            if (keystorePropertiesFile.exists()) {
+                keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+            }
+            def storeFilePath = keystoreProperties['storeFile']
+            storeFile storeFilePath ? file(storeFilePath) : null
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
+        }
+        debug {
+            // keep debug installs signed with the release key so upgrades are seamless
+            signingConfig signingConfigs.release
         }
     }
 }
