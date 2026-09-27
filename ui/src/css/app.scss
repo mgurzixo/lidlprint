@@ -1,1 +1,11 @@
 // app global css
+
+// Hard-clamp horizontal overflow: a wide child (long unbroken string, wide
+// button row) must never scroll the page body sideways.
+html,
+body,
+#q-app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
