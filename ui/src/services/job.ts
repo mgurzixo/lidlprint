@@ -307,7 +307,7 @@ export function useJob() {
         job.paperOk,
     ),
     doPrint,
-    printBlackSquare,
+    printQuantized,
     pickImage,
     consumeShare,
     loadImage,
@@ -394,16 +394,21 @@ async function sendBitmapJob(bitmapBytes: Uint8Array, rows: number): Promise<boo
   }
 }
 
-/** DEBUG: solid black 384x384 dots — measures printer dot aspect + feed. */
-export async function printBlackSquare(): Promise<void> {
-  const W = 384, H = 384;
-  const data = new Uint8Array(48 * H).fill(0xff); // 1 = black
+/** DEBUG: print the loaded preview through the exact quantized path
+ *  (nearest 384 + threshold 128 + level-0 deflate + mode 0c/7f2891). */
+export async function printQuantized(): Promise<void> {
+  if (job.printing || !job.preview.rgba) return;
   const { say } = useBt();
   job.printing = true;
   job.progress = 0;
   try {
-    const ok = await sendBitmapJob(data, H);
-    if (ok) say('Black square printed ✓ — measure it!');
+    const bitmap = rasterize();
+    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
+    full.set(bitmap.data, 0);
+    const ok = await sendBitmapJob(full, bitmap.height + 80);
+    if (ok) say('Printed ✓');
+  } catch (e) {
+    say(`Print failed: ${String(e)}`, true);
   } finally {
     job.printing = false;
   }

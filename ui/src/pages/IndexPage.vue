@@ -64,9 +64,9 @@
         unelevated
         outline
         color="deep-orange"
-        label="DEBUG: print black 384x384"
-        :disable="btState !== 'connected'"
-        @click="printBlackSquare"
+        label="DEBUG: print quantized bitmap"
+        :disable="btState !== 'connected' || !preview.rgba"
+        @click="printQuantized"
       />
     </div>
   </q-page>
@@ -86,7 +86,7 @@ const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
 const { preview, density, dither, printLabel, canPrint, doPrint, pickImage, consumeShare } =
   useJob();
-const { printBlackSquare } = useJob();
+const { printQuantized } = useJob();
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
