@@ -1,0 +1,39 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="app-release" type="AndroidRunConfigurationType" factoryName="Android App">
+    <module name="LidlPrint.app" />
+    <option name="DEPLOY" value="true" />
+    <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+    <option name="DEPLOY_AS_INSTANT" value="false" />
+    <option name="ARTIFACT_NAME" value="" />
+    <option name="PM_INSTALL_OPTIONS">
+      <option name="ID_VALUE" value="" />
+      <option name="USER" value="" />
+      <option name="EXTRA_OPTIONS" value="" />
+      <option name="PM_INSTALL_OPTIONS_LIST">
+        <list>
+          <option value="" />
+        </list>
+      </option>
+    </option>
+    <option name="ALL_USERS" value="false" />
+    <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+    <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+    <option name="CLEAR_APP_STORAGE" value="false" />
+    <option name="DYNAMIC_FEATURES_DISABLED_LIST" />
+    <option name="ACTIVITY_EXTRA_FLAGS" />
+    <option name="MODE" value="default_activity" />
+    <option name="CLEAR_LOGCAT" value="false" />
+    <option name="SHOW_LOGCAT_AUTOMATICALLY" value="true" />
+    <option name="SKIP_NOOP_APK_INSTALLATIONS" value="true" />
+    <option name="FORCE_STOP_RUNNING_APP" value="true" />
+    <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+    <option name="SELECTED_CLOUD_MATRIX_CONFIGURATION_ID" value="-1" />
+    <option name="SELECTED_DEVICE_SNAPSHOT" value="" />
+    <option name="PREFERRED_ADB_DEVICE" value="" />
+    <option name="SELECTED_CLOUD_MATRIX_DEVICE_ENVIRONMENT_VARIABLES" />
+    <option name="PROJECT_ID" value="" />
+    <method v="2">
+      <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+    </method>
+  </configuration>
+</component>
