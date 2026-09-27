@@ -286,9 +286,18 @@ export async function pasteImage(): Promise<void> {
   try {
     const { Clipboard } = await import('@capacitor/clipboard');
     const res = await Clipboard.read();
-    console.log('[lidlprint] pasteImage: read() ->', JSON.stringify(res));
-    if (res.type.startsWith('image') || res.value.startsWith('data:image')) {
-      await loadImage(res.value);
+    console.log('[lidlprint] pasteImage: read() ->',
+      { type: res.type, len: res.value?.length, head: res.value?.slice(0, 8) });
+    const v = res.value ?? '';
+    const isPng = v.charCodeAt(0) === 0x89 && v.slice(1, 4) === 'PNG';
+    const isJpeg = v.charCodeAt(0) === 0xff && v.charCodeAt(1) === 0xd8;
+    const looksBinary = v.length > 8 && (isPng || isJpeg);
+    if (res.type.startsWith('image') || res.value.startsWith('data:image') || looksBinary) {
+      // binary-string form (Android returns raw bytes as a JS string): rebuild a blob
+      const src = v.startsWith('data:')
+        ? v
+        : URL.createObjectURL(new Blob([new Uint8Array(Array.from(v, (c) => c.charCodeAt(0) & 0xff))], { type: 'image/png' }));
+      await loadImage(src);
       return;
     }
     useBt().say(
