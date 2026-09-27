@@ -283,8 +283,17 @@ export function clearImage(): void {
 
 /** Read an image from the clipboard (if permission granted). */
 export async function pasteImage(): Promise<void> {
+  console.log('[lidlprint] pasteImage: navigator.clipboard =', navigator.clipboard);
+  if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+    useBt().say(
+      'Clipboard read unavailable (needs permission or https context). Use Pick Image.',
+      true,
+    );
+    return;
+  }
   try {
     const items = await navigator.clipboard.read();
+    console.log('[lidlprint] pasteImage: items =', JSON.stringify(items, null, 2));
     for (const item of items) {
       const type = item.types.find((t) => t.startsWith('image/'));
       if (type) {
@@ -295,6 +304,7 @@ export async function pasteImage(): Promise<void> {
     }
     useBt().say('No image in clipboard.', true);
   } catch (e) {
+    console.log('[lidlprint] pasteImage error:', String(e));
     useBt().say(`Paste failed: ${String(e)}`, true);
   }
 }

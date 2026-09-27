@@ -137,6 +137,7 @@ onMounted(() => void consumeShare());
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0; /* allow the flex item to shrink below content width */
 }
 .preview-zone {
   min-height: 0;
