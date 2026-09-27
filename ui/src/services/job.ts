@@ -281,28 +281,20 @@ export function clearImage(): void {
   useBt().say('Make sure that the printer is ON.');
 }
 
-/** Read an image from the clipboard (if permission granted). */
+/** Read an image from the clipboard via @capacitor/clipboard. */
 export async function pasteImage(): Promise<void> {
-  console.log('[lidlprint] pasteImage: navigator.clipboard =', navigator.clipboard);
-  if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+  try {
+    const { Clipboard } = await import('@capacitor/clipboard');
+    const res = await Clipboard.read();
+    console.log('[lidlprint] pasteImage: read() ->', JSON.stringify(res));
+    if (res.type.startsWith('image') || res.value.startsWith('data:image')) {
+      await loadImage(res.value);
+      return;
+    }
     useBt().say(
-      'Clipboard read unavailable (needs permission or https context). Use Pick Image.',
+      `Clipboard has ${res.type || 'nothing'} — copy an image, or use Share.`,
       true,
     );
-    return;
-  }
-  try {
-    const items = await navigator.clipboard.read();
-    console.log('[lidlprint] pasteImage: items =', JSON.stringify(items, null, 2));
-    for (const item of items) {
-      const type = item.types.find((t) => t.startsWith('image/'));
-      if (type) {
-        const blob = await item.getType(type);
-        await loadImage(URL.createObjectURL(blob));
-        return;
-      }
-    }
-    useBt().say('No image in clipboard.', true);
   } catch (e) {
     console.log('[lidlprint] pasteImage error:', String(e));
     useBt().say(`Paste failed: ${String(e)}`, true);

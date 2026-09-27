@@ -8,6 +8,7 @@
     "@capacitor/app": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "com-darryncampbell-cordova-plugin-intent": "git+ssh://git@github.com/mgurzixo/darryncampbell-cordova-plugin-intent.git"
+    "com-darryncampbell-cordova-plugin-intent": "git+ssh://git@github.com/mgurzixo/darryncampbell-cordova-plugin-intent.git",
+    "@capacitor/clipboard": "^7.0.2"
   }
 }
