@@ -170,8 +170,14 @@ declare global {
 }
 
 function decodeShareIntent(intent: any): void {
-  console.log('[lidlprint] intent:', JSON.stringify(intent, null, 2));
   const type: string = intent?.type ?? '';
+  const streamUri = intent?.extras?.['android.intent.extra.STREAM'];
+  const clipCount = intent?.clipItems?.length ?? 0;
+  // Launcher/normal launch: ACTION_SEND absent, no payload — ignore silently.
+  if (intent?.action !== 'android.intent.action.SEND' || (!streamUri && !clipCount)) {
+    return; // not a share — plain launch, no message
+  }
+  console.log('[lidlprint] intent:', JSON.stringify(intent, null, 2));
 
   // Collect EVERY plausible image-uri candidate, in priority order. Different
   // senders put the payload in different places (url, data, EXTRA_STREAM,
@@ -199,8 +205,6 @@ function decodeShareIntent(intent: any): void {
     textToPreview(text);
   } else if (candidates.length > 0) {
     void loadImageWithFallbacks(candidates); // unknown type but has a URI — try it
-  } else {
-    useBt().say(`Unsupported share (type=${type || 'none'})`, true);
   }
 }
 
@@ -303,6 +307,7 @@ export function useJob() {
         job.paperOk,
     ),
     doPrint,
+    printBlackSquare,
     pickImage,
     consumeShare,
     loadImage,
@@ -315,9 +320,25 @@ async function doPrint(): Promise<void> {
   job.printing = true;
   job.progress = 0;
   try {
-    // 0. warm-up: vendor app queries status right after connect; the printer
-    // closes SPP sockets that stay silent, so ping first and reconnect if dead.
-    const bt = useBt();
+    const bitmap = rasterize();
+    // append ~10mm (80 dot-lines) of blank paper feed after the image
+    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
+    full.set(bitmap.data, 0);
+    const ok = await sendBitmapJob(full, bitmap.height + 80);
+    if (ok) say('Printed ✓');
+  } catch (e) {
+    say(`Print failed: ${String(e)}`, true);
+  } finally {
+    job.printing = false;
+  }
+}
+
+/** Send a complete image job for an already-packed bitmap (+80 feed rows appended by caller). */
+async function sendBitmapJob(bitmapBytes: Uint8Array, rows: number): Promise<boolean> {
+  const { say } = useBt();
+  const bt = useBt();
+  try {
+    // 0. warm-up: printer closes SPP sockets that stay silent — ping, reconnect if dead
     let sink = makeSink();
     let alive = false;
     try {
@@ -327,108 +348,66 @@ async function doPrint(): Promise<void> {
     } catch { alive = false; }
     if (!alive) {
       say('Reconnecting to printer…');
-      await bt.disconnect(''); 
-      if (!(await bt.connect())) return;
+      await bt.disconnect('');
+      if (!(await bt.connect())) return false;
       sink = makeSink();
       await sink.write(CMD.getBattery);
       const warm2 = await readSome(sink);
       if (warm2.length === 0) {
         say('Printer is not responding.', true);
-        return;
+        return false;
       }
     }
     // 1. paper check
     await sink.write(CMD.getPaperStatus);
     const paper = await readSome(sink);
-    job.paperOk = paper.length > 0 && paper[paper.length - 1] !== 0x04;
+    job.paperOk = paper.length > 0 && paper[paper.length - 1]! !== 0x04;
     if (!job.paperOk) {
       say('No paper.', true);
-      return;
+      return false;
     }
-    // 2. (density: gen-2 has no verified density command in captures — the
-    //    header mode byte carries it; sending 10FF1000n prints garbage here)
-    // 3. build bitmap + job
-    const bitmap = rasterize();
-    // append ~10mm (80 dot-lines) of blank paper feed to the bitmap itself
-    const blank = new Uint8Array(bitmap.bytesPerRow * 80); // 1 = black; 0 = blank rows? no:
-    // NOTE: bit=1 prints black. Blank feed rows must be 0x00 bytes? 1bpp: bit=1 is black,
-    // so blank = all zero BITS => byte 0x00. Uint8Array inits to 0. good.
-    const full = new Uint8Array(bitmap.data.length + blank.length);
-    full.set(bitmap.data, 0);
-    full.set(blank, bitmap.data.length);
-    const totalRows = bitmap.height + 80;
-    const chunks = encodeJob(full, totalRows, {
+    // 2. build + send job (vendor-exact: begin, header+deflate, feed, end)
+    const chunks = encodeJob(bitmapBytes, rows, {
       gen: 2,
       deflate: (d) => pakoDeflateRaw(d, { level: 0 }) as Uint8Array,
       mode: 0x0c, // vendor's choice for photo shares (see vendor_sent_51)
-      // feed 80 dots as the vendor app does
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
-    {
-      const img = chunks[1]!;
-      (window as any).__lastJob = chunks; // for devtools: inspect/replay
-      console.log('[lidlprint] job: img chunk len', img.length,
-        'hdr', Array.from(img.subarray(0, 12)).map(b => b.toString(16).padStart(2, '0')).join(' '),
-        'first-data', Array.from(img.subarray(12, 20)).map(b => b.toString(16).padStart(2, '0')).join(' '));
-    }
-    // 4. send with ACK pacing
     let sent = 0;
     for (const chunk of chunks) {
-      await writeChunk(sink, chunk);
+      await writeChunk(sink, chunk, { chunkSize: 255 });
       sent += chunk.length;
       job.progress = Math.min(99, Math.round((sent / total) * 100));
     }
-    // 5. wait for ready sentinel
+    // 3. wait for the ready sentinel
     const ok = await finishJob(sink, 10_000);
     if (!ok) {
       say('Printer did not confirm end of job.', true);
-      return;
+      return false;
     }
-    job.progress = 100;
-    say('Printed ✓');
-    // keep the connection alive (user request); it drops on printer auto-off
-
+    return true;
   } catch (e) {
     say(`Print failed: ${String(e)}`, true);
+    return false;
   } finally {
     job.printing = false;
   }
 }
 
-// Replay the exact captured vendor "hello world" job (doc/RE doc §4).
-// console: (await __replayCapture())  — needs printer connected.
-(window as any).__replayVendorPhoto = async function () {
-  const btMod: any = await import('./bt');
-  const store = btMod.bt;
-  if (store.state === 'connected') await btMod.useBt().disconnect('');
-  if (!(await btMod.useBt().connect())) return 'connect failed';
-  console.log('[lidlprint] vendor replay: connected, streaming');
-  const hex = await (await fetch('/vendor_sent.hex')).text();
-  const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
-  const sink = makeSink();
-  const { writeChunk, finishJob } = await import('./printer-protocol');
-  await writeChunk(sink, bytes, { chunkSize: 255 });
-  const ok = await finishJob(sink, 15000);
-  return ok ? 'vendor replay done' : 'no ready sentinel';
-};
-
-(window as any).__replayCapture = async function () {
-  const btMod: any = await import('./bt');
-  const store = btMod.bt;
-  // always start from a FRESH connection: the printer drops idle SPP in seconds
-  if (store.state === 'connected') await btMod.useBt().disconnect('');
-  if (!(await btMod.useBt().connect())) return 'connect failed';
-  console.log('[lidlprint] replay: connected, streaming immediately');
-  // captured SPP stream (from spp_sent2.bin, 226-row hello world)
-  const hex = await (await fetch('/spp_sent2.hex')).text();
-  const bytes = new Uint8Array(hex.trim().split(/\s+/).map(h => parseInt(h, 16)));
-  const sink = makeSink();
-  const { writeChunk } = await import('./printer-protocol');
-  await writeChunk(sink, bytes);
-  const { finishJob } = await import('./printer-protocol');
-  const ok = await finishJob(sink, 10000);
-  return ok ? 'replay done' : 'no ready sentinel';
-};
+/** DEBUG: solid black 384x384 dots — measures printer dot aspect + feed. */
+export async function printBlackSquare(): Promise<void> {
+  const W = 384, H = 384;
+  const data = new Uint8Array(48 * H).fill(0xff); // 1 = black
+  const { say } = useBt();
+  job.printing = true;
+  job.progress = 0;
+  try {
+    const ok = await sendBitmapJob(data, H);
+    if (ok) say('Black square printed ✓ — measure it!');
+  } finally {
+    job.printing = false;
+  }
+}
 
 // minimal SPP sink over the capacitor bridge
 function makeSink(): ByteSink {

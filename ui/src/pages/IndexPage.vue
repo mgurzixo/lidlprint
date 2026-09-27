@@ -58,6 +58,16 @@
         :disable="!canPrint"
         @click="doPrint"
       />
+      <q-btn
+        class="full-width"
+        no-caps
+        unelevated
+        outline
+        color="deep-orange"
+        label="DEBUG: print black 384x384"
+        :disable="btState !== 'connected'"
+        @click="printBlackSquare"
+      />
     </div>
   </q-page>
 </template>
@@ -76,6 +86,7 @@ const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
 const { preview, density, dither, printLabel, canPrint, doPrint, pickImage, consumeShare } =
   useJob();
+const { printBlackSquare } = useJob();
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
