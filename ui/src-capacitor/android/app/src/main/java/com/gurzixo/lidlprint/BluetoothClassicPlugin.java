@@ -35,7 +35,13 @@ import java.util.concurrent.TimeUnit;
  * (src/services/printer-protocol.ts). Stateless: connect → write/read × n →
  * disconnect.
  */
-@CapacitorPlugin(name = "BluetoothClassic")
+@CapacitorPlugin(
+    name = "BluetoothClassic",
+    permissions = {
+        @Permission(strings = { Manifest.permission.BLUETOOTH_CONNECT }, alias = "connect"),
+        @Permission(strings = { Manifest.permission.BLUETOOTH_SCAN }, alias = "scan")
+    }
+)
 public class BluetoothClassicPlugin extends Plugin {
 
     private static final UUID SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -57,10 +63,10 @@ public class BluetoothClassicPlugin extends Plugin {
     private void connectCallback(PluginCall call) {
         if (!hasConnectPermission()) {
             call.reject("BLUETOOTH_CONNECT permission denied by user");
-        } else if (call.getMethodName().equals("listBonded")) {
+        } else if ("listBonded".equals(call.getMethodName())) {
             doListBonded(call);
         } else {
-            // connect(): resolve; JS retries the real connect
+            // connect(): resolve; JS proceeds with the real connect
             call.resolve();
         }
     }

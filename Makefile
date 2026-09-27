@@ -19,7 +19,7 @@ UI := ui
 CAP := ui/src-capacitor/android
 # Gradle JDK — must match the AS project JDK (~/.jdks/jbr-21.0.11) to avoid
 # "Multiple Gradle daemons" warnings.
-GRADLE_JDK := $(HOME)/.jdks/jbr-21.0.11
+GRADLE_JDK := $(HOME)/android-studio/jbr
 ANDROID_JAVA_ENV=$(if $(wildcard $(GRADLE_JDK)),JAVA_HOME="$(GRADLE_JDK)" PATH="$(GRADLE_JDK)/bin:$$PATH",)
 
 .PHONY: help devandroid buildandroid installadb sync test clean
