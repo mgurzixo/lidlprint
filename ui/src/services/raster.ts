@@ -34,7 +34,7 @@ export function toGray(rgba: Uint8Array | Uint8ClampedArray, width: number, heig
   return { data: out, width, height };
 }
 
-/** Bilinear resample — smooth module edges so threshold() keeps QR decodable. */
+/** Nearest-neighbour scale ("brutal", vendor-matched for art/QR). */
 export function scaleGray(src: Gray, newWidth: number, newHeight: number): Gray {
   const out = new Uint8Array(newWidth * newHeight);
   const xr = src.width / newWidth;
