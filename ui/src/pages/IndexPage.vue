@@ -44,8 +44,9 @@
         color="grey-3"
         text-color="grey-9"
         :options="[
-          { label: 'Photo (dithered)', value: 'photo' },
+          { label: 'QR Code', value: 'qr' },
           { label: 'Art (crisp)', value: 'art' },
+          { label: 'Photo (dithered)', value: 'photo' },
         ]"
       />
       <q-btn

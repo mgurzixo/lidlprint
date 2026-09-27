@@ -34,7 +34,7 @@ export function toGray(rgba: Uint8Array | Uint8ClampedArray, width: number, heig
   return { data: out, width, height };
 }
 
-/** Nearest-neighbour scale ("brutal", vendor-matched for art/QR). */
+/** Nearest-neighbour scale — the exact, brutal quantization used for QR/art. */
 export function scaleGray(src: Gray, newWidth: number, newHeight: number): Gray {
   const out = new Uint8Array(newWidth * newHeight);
   const xr = src.width / newWidth;
@@ -93,6 +93,32 @@ export function trimWhiteBorders(
     out.set(rgba.subarray(srcRow, srcRow + nw * 4), y * nw * 4);
   }
   return { data: out, w: nw, h: nh };
+}
+
+/** Bilinear resample — smoother for photos/dithers. */
+export function scaleGrayBilinear(src: Gray, newWidth: number, newHeight: number): Gray {
+  const out = new Uint8Array(newWidth * newHeight);
+  const xr = src.width / newWidth;
+  const yr = src.height / newHeight;
+  for (let y = 0; y < newHeight; y++) {
+    const fy = (y + 0.5) * yr - 0.5;
+    const y0 = Math.max(0, Math.floor(fy));
+    const y1 = Math.min(src.height - 1, y0 + 1);
+    const dy = fy - y0;
+    for (let x = 0; x < newWidth; x++) {
+      const fx = (x + 0.5) * xr - 0.5;
+      const x0 = Math.max(0, Math.floor(fx));
+      const x1 = Math.min(src.width - 1, x0 + 1);
+      const dx = fx - x0;
+      const v =
+        (1 - dx) * (1 - dy) * src.data[y0 * src.width + x0]! +
+        dx * (1 - dy) * src.data[y0 * src.width + x1]! +
+        (1 - dx) * dy * src.data[y1 * src.width + x0]! +
+        dx * dy * src.data[y1 * src.width + x1]!;
+      out[y * newWidth + x] = Math.round(v);
+    }
+  }
+  return { data: out, width: newWidth, height: newHeight };
 }
 
 /** Simple threshold — for line art / QR / text that must stay crisp. */

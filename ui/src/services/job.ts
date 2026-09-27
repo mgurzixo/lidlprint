@@ -6,7 +6,7 @@
  */
 import { computed, reactive } from 'vue';
 import { deflateRaw as pakoDeflateRaw } from 'pako';
-import { toGray, scaleGray, threshold, ditherFloydSteinberg, type Bitmap } from './raster';
+import { toGray, scaleGray, scaleGrayBilinear, threshold, ditherFloydSteinberg, type Bitmap } from './raster';
 import {
   CMD, encodeJob, writeChunk, finishJob, cat, type ByteSink,
 } from './printer-protocol';
@@ -34,7 +34,7 @@ export const job = reactive({
     rows: 0,
   } as PreviewState,
   density: 1 as 0 | 1 | 2,
-  dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art') || 'art',
+  dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art' | 'qr') || 'qr',
   printing: false,
   progress: 0, // 0..100
   paperOk: true,
@@ -44,8 +44,11 @@ function rasterize(): Bitmap {
   const p = job.preview;
   if (!p.rgba) throw new Error('no image');
   const gray = toGray(p.rgba, p.srcW, p.srcH);
-  const scaled = scaleGray(gray, HEAD_WIDTH_PX, p.rows);
-  const bm = job.dither === 'art' ? threshold(scaled) : ditherFloydSteinberg(scaled);
+  const scaled =
+    job.dither === 'photo'
+      ? scaleGrayBilinear(gray, HEAD_WIDTH_PX, p.rows)
+      : scaleGray(gray, HEAD_WIDTH_PX, p.rows);
+  const bm = job.dither === 'photo' ? ditherFloydSteinberg(scaled) : threshold(scaled);
   console.log('[lidlprint] rasterize: dither =', job.dither, 'bitmap', bm.width, 'x', bm.height,
     '(', bm.data.length, 'bytes,', bm.bytesPerRow, 'B/row )');
   return bm;
@@ -291,7 +294,7 @@ export function useJob() {
     }),
     dither: computed({
       get: () => job.dither,
-      set: (v: 'photo' | 'art') => {
+      set: (v: 'photo' | 'art' | 'qr') => {
         job.dither = v;
         localStorage.setItem('lidlprint.dither', v);
       },
