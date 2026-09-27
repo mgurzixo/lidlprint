@@ -230,6 +230,50 @@ public class BluetoothClassicPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void readClipboardImage(PluginCall call) {
+        android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        if (cm == null || !cm.hasPrimaryClip()) {
+            call.reject("clipboard empty");
+            return;
+        }
+        android.content.ClipDescription desc = cm.getPrimaryClipDescription();
+        if (desc == null) {
+            call.reject("no clip description");
+            return;
+        }
+        boolean hasImage = false;
+        for (int i = 0; i < desc.getMimeTypeCount(); i++) {
+            if (desc.getMimeType(i).startsWith("image/")) { hasImage = true; break; }
+        }
+        if (!hasImage) {
+            call.reject("clipboard has no image (" + desc.toString() + ")");
+            return;
+        }
+        android.content.ClipData clip = cm.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) {
+            call.reject("empty clip");
+            return;
+        }
+        android.net.Uri uri = clip.getItemAt(0).getUri();
+        if (uri == null) {
+            call.reject("clip item has no uri");
+            return;
+        }
+        try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            JSObject ret = new JSObject();
+            ret.put("data", Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP));
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("read failed: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void isConnected(PluginCall call) {
         JSObject ret = new JSObject();
         synchronized (ioLock) {

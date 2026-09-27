@@ -284,6 +284,15 @@ export function clearImage(): void {
 /** Read an image from the clipboard via @capacitor/clipboard. */
 export async function pasteImage(): Promise<void> {
   try {
+    // Preferred: native ClipboardManager (byte-exact via ContentResolver)
+    const p = window.Capacitor?.Plugins?.BluetoothClassic as any;
+    if (p?.readClipboardImage) {
+      const res = await p.readClipboardImage();
+      console.log('[lidlprint] pasteImage: native ok, base64 len =', res.data.length);
+      await loadImage(`data:image/png;base64,${res.data}`);
+      return;
+    }
+    // Fallback: @capacitor/clipboard JS path (binary string may be mangled)
     const { Clipboard } = await import('@capacitor/clipboard');
     const res = await Clipboard.read();
     console.log('[lidlprint] pasteImage: read() ->',
