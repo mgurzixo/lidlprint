@@ -2,8 +2,8 @@
 # Targets run from repo root: ~/dev/lidlprint
 #
 # devandroid  : starts quasar dev (HMR server) AND opens Android Studio on
-#               ui/android — press Run in AS to deploy; the WebView loads the
-#               dev server with live reload.
+#               ui/src-capacitor/android — press Run in AS to deploy; the
+#               WebView loads the dev server with live reload.
 # buildandroid: full SPA build + cap sync + assembleDebug + adb install.
 
 UI := ui
@@ -14,7 +14,7 @@ ANDROID_JAVA_ENV=$(if $(strip $(ANDROID_JAVA_HOME)),JAVA_HOME="$(ANDROID_JAVA_HO
 .PHONY: help devandroid buildandroid sync test clean
 
 help:
-	@echo "make devandroid   - quasar dev (HMR) + launch Android Studio on ui/android"
+	@echo "make devandroid   - quasar dev (HMR) + launch Android Studio on ui/src-capacitor/android"
 	@echo "make buildandroid - SPA build + cap sync + assembleDebug + adb install"
 	@echo "make sync         - quasar build + cap sync only"
 	@echo "make test         - protocol + raster unit tests (Node)"
@@ -41,13 +41,10 @@ sync:
 	cd $(UI) && npx cap sync android
 	@# cap sync regenerates this with a newer AGP than the installed AS supports
 	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(CAP)/capacitor-cordova-android-plugins/build.gradle
-	@# cap sync regenerates this file with an AGP version newer than AS supports
-	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor-cordova-android-plugins/build.gradle
-	sed -i 's/com.android.tools.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.9.2/' $(UI)/android/capacitor.settings.gradle 2>/dev/null || true
 
 test:
 	node --test --experimental-strip-types test/*.test.ts
 
 clean:
 	rm -rf $(UI)/dist
-	cd $(UI)/android && $(ANDROID_JAVA_ENV) ./gradlew clean || true
+	cd $(CAP) && $(ANDROID_JAVA_ENV) ./gradlew clean || true
