@@ -131,8 +131,13 @@ export function useBt() {
         say(`Connected · ${bt.device.name}`);
         return true;
       } catch (e) {
+        const msg = String(e);
         bt.state = 'disconnected';
-        say(`Connect failed: ${String(e)}`, true);
+        if (msg.includes('permission')) {
+          say('Bluetooth permission is required. Grant it when Android asks.', true);
+        } else {
+          say(`Connect failed: ${msg}`, true);
+        }
         return false;
       }
     },

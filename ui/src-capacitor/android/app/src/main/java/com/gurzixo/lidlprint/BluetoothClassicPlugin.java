@@ -60,7 +60,7 @@ public class BluetoothClassicPlugin extends Plugin {
         } else if (call.getMethodName().equals("listBonded")) {
             doListBonded(call);
         } else {
-            // connect(): just resolve; the JS layer retries the actual connect
+            // connect(): resolve; JS retries the real connect
             call.resolve();
         }
     }
