@@ -17,8 +17,10 @@
 
 UI := ui
 CAP := ui/src-capacitor/android
-ANDROID_JAVA_HOME=$(strip $(shell if [ -n "$$JAVA_HOME" ]; then printf '%s' "$$JAVA_HOME"; elif [ -d "$(HOME)/android-studio/jbr" ]; then printf '%s' "$(HOME)/android-studio/jbr"; elif [ -d "/opt/android-studio/jbr" ]; then printf '%s' "/opt/android-studio/jbr"; fi))
-ANDROID_JAVA_ENV=$(if $(strip $(ANDROID_JAVA_HOME)),JAVA_HOME="$(ANDROID_JAVA_HOME)" PATH="$(ANDROID_JAVA_HOME)/bin:$$PATH",)
+# Gradle JDK — must match the AS project JDK (~/.jdks/jbr-21.0.11) to avoid
+# "Multiple Gradle daemons" warnings.
+GRADLE_JDK := $(HOME)/.jdks/jbr-21.0.11
+ANDROID_JAVA_ENV=$(if $(wildcard $(GRADLE_JDK)),JAVA_HOME="$(GRADLE_JDK)" PATH="$(GRADLE_JDK)/bin:$$PATH",)
 
 .PHONY: help devandroid buildandroid installadb sync test clean
 
@@ -38,7 +40,7 @@ devandroid:
 buildandroid: sync
 	@echo "--- JS bundled + synced. Launching Android Studio on $(CURDIR)/$(CAP)"
 	@if [ -x "$(HOME)/android-studio/bin/studio.sh" ]; then \
-	  nohup env JAVA_HOME="$(HOME)/android-studio/jbr" "$(HOME)/android-studio/bin/studio.sh" "$(CURDIR)/$(CAP)" >/dev/null 2>&1 & \
+	  nohup "$(HOME)/android-studio/bin/studio.sh" "$(CURDIR)/$(CAP)" >/dev/null 2>&1 & \
 	  echo "--- AS launching. Compile (debug) + Run from AS to upload."; \
 	else \
 	  echo "!!! $(HOME)/android-studio/bin/studio.sh not found — open $(CURDIR)/$(CAP) in AS manually"; \
