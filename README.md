@@ -1,10 +1,14 @@
-# lidlprint
+# LidlPrint
 
-Direct printing to Lidl/Silvercrest **Mini Pocket Printer** (and siblings) from
+Direct printing to the Lidl/Silvercrest/TRONIC **Mini Pocket Printer** from
 your own app — no vendor app required.
 
-**Status: protocol fully reverse-engineered and verified against live traffic.
-Android app in progress.**
+Prints any shared image (QR codes, photos, screenshots, labels) at the full
+48 mm thermal width. Scannable 40 mm QR codes, portrait and landscape.
+
+**Status: WORKING.** Protocol fully reverse-engineered and verified against
+live traffic; the Android app prints, shares, and reconnects. MIT, no vendor
+code. Download the APK from [Releases](https://github.com/mgurzixo/lidlprint/releases).
 
 ## What printers does this cover?
 
@@ -112,16 +116,37 @@ the protocol layer of this app, standalone and dependency-free.
 The captures and decoded images live in
 [`doc/`](doc/) for reference.
 
-## App (roadmap)
+## App — done
 
 - [x] Protocol decode + verification (gen-2 "A2Y": SPP/RFCOMM, deflate bitmap)
 - [x] `printer-protocol.ts` — protocol encoder (pure TS, byte-identical vs captures)
 - [x] `raster.ts` — nearest/bilinear scale, threshold + Floyd–Steinberg dither, 1-bpp MSB
 - [x] Capacitor wiring: Bluetooth Classic SPP plugin + share-intent receiver
-- [x] Print preview, Art/Photo modes, paper check, battery warm-up, reconnect
-- [x] Share images from any app (zik4 QR prints at 40 mm, scannable)
-- [x] Pick/paste image, in-app runtime permission dialog, release signing
-- [ ] Play Store / GitHub release
+- [x] Print preview, Art (crisp) / Photo (dithered) modes, paper check,
+      battery warm-up, auto-reconnect
+- [x] Share images from any app (ZK QR codes print at 40 mm, easily scannable)
+- [x] Pick image / paste from clipboard
+- [x] In-app runtime permission dialog (fresh install → Connect → grant → green)
+- [x] Release signing
+
+## Using the app
+
+1. Install the APK (Releases), pair the printer once in Android Bluetooth
+   settings — it appears as **"Mini Pocket Printer"**.
+2. Open LidlPrint, tap **Connect**, pick the printer, grant Bluetooth when
+   Android asks.
+3. Share any image to LidlPrint (or use Pick / Paste), choose
+   **Art (crisp)** for QR/line art or **Photo (dithered)** for photos, tap **Print**.
+
+## About
+
+LidlPrint was built by reverse-engineering the Bluetooth traffic of the vendor
+"Pocket Printer" app (com.printer.lidloffice) on a Lidl IAN 508705_2507 unit
+(model "A2Y", firmware V1.06LY). Full protocol documentation in
+[doc/REVERSE-ENGINEERING.md](doc/REVERSE-ENGINEERING.md), spec in
+[doc/SPEC.md](doc/SPEC.md). Unit tests replay the captured vendor jobs
+byte-for-byte. Not affiliated with Lidl or Karsten International; printer
+and paper sold separately, as ever.
 
 **Android only** — iOS has no Bluetooth Classic API (Apple MFi wall) and
 Web Bluetooth cannot do SPP, so neither a PWA nor iOS can ever reach this
