@@ -26,7 +26,7 @@
         </div>
       </template>
       <div v-else class="text-grey-6 text-center q-pa-xl">
-        Share an image to LidlPrint, or:
+        Share, Paste or Pick an image.
         <div class="row justify-center q-gutter-sm q-mt-sm">
           <q-btn round unelevated size="22px" color="primary" icon="add_photo_alternate" @click="pickImage">
             <q-tooltip>Pick image</q-tooltip>
