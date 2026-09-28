@@ -158,17 +158,20 @@ onMounted(() => void consumeShare());
 }
 .preview-zone {
   min-height: 0;
+  overflow-y: auto; /* long strips scroll here, controls stay put */
 }
 .paper {
+  /* true paper strip: 48 mm print width, grows downward as the bitmap is tall */
   background: #fff;
   border: 1px dashed #bbb;
-  max-height: 100%;
   overflow: hidden;
+  width: min(100%, 48mm);
+  margin: 0 auto;
 }
 .preview-img {
   display: block;
-  max-width: 100%;
-  max-height: 50vh;
+  width: 100%; /* bitmap IS 384 dots wide — fills the paper edge to edge */
+  height: auto;
 }
 .print-btn {
   border-radius: 8px;
