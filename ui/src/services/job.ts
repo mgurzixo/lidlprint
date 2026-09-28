@@ -255,10 +255,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     }
     // retry loop: GATT connects to this printer are flaky (error 133 etc.)
     const ATTEMPTS = 4;
+    const target = addr as string;
     for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-      console.log(`[ble] connect attempt ${attempt}/${ATTEMPTS} to ${addr}`);
+      console.log(`[ble] connect attempt ${attempt}/${ATTEMPTS} to ${target}`);
       try {
-        await p.bleConnect({ address: addr });
+        await p.bleConnect({ address: target });
         // poll until service discovery completes
         let t: any = { services: [] };
         for (let i = 0; i < 12; i++) {
