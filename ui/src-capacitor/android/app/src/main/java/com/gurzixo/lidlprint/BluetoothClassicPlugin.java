@@ -3,7 +3,19 @@ package com.gurzixo.lidlprint;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.util.Base64;
@@ -49,6 +61,260 @@ public class BluetoothClassicPlugin extends Plugin {
     private OutputStream out;
     private InputStream in;
     private final Object ioLock = new Object();
+
+    // ---- BLE probe state (RE tooling) ----
+    private BluetoothLeScanner bleScanner;
+    private ScanCallback bleScanCallback;
+    private BluetoothGatt bleGatt;
+    private final java.util.List<JSObject> bleServices = new java.util.ArrayList<>();
+    private final java.util.concurrent.ConcurrentLinkedQueue<String> bleNotifyHex =
+            new java.util.concurrent.ConcurrentLinkedQueue<>();
+
+    // ---------------------------------------------------------------- BLE probe
+
+    /** Scan BLE advertisers (named only) for scanMs, return list. */
+    @PluginMethod
+    public void bleScan(PluginCall call) {
+        Integer scanMs = call.getInt("scanMs", 8000);
+        BluetoothManager bm = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = bm == null ? null : bm.getAdapter();
+        if (adapter == null || !adapter.isEnabled()) {
+            call.reject("bluetooth off");
+            return;
+        }
+        try {
+            bleScanner = adapter.getBluetoothLeScanner();
+        } catch (SecurityException e) {
+            call.reject("scan permission: " + e.getMessage());
+            return;
+        }
+        if (bleScanner == null) {
+            call.reject("no LE scanner");
+            return;
+        }
+        JSArray found = new JSArray();
+        bleScanCallback = new ScanCallback() {
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+                BluetoothDevice d = result.getDevice();
+                String name;
+                try { name = d.getName(); } catch (SecurityException se) { name = null; }
+                if (name == null || name.isEmpty()) return;
+                JSObject o = new JSObject();
+                o.put("name", name);
+                try { o.put("address", d.getAddress()); } catch (SecurityException ignored) { }
+                o.put("rssi", result.getRssi());
+                android.util.Log.d("lidlprint", "BLE adv: " + name + " " + result.getRssi() + "dBm");
+                found.put(o);
+            }
+        };
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
+        try {
+            bleScanner.startScan(null, settings, bleScanCallback);
+        } catch (SecurityException e) {
+            call.reject("startScan: " + e.getMessage());
+            return;
+        }
+        getBridge().getWebView().postDelayed(() -> {
+            try {
+                if (bleScanner != null && bleScanCallback != null) bleScanner.stopScan(bleScanCallback);
+            } catch (Exception ignored) { }
+            JSObject ret = new JSObject();
+            ret.put("devices", found);
+            call.resolve(ret);
+        }, scanMs);
+    }
+
+    /** GATT connect + discover; services land in bleServices(). */
+    @PluginMethod
+    public void bleConnect(PluginCall call) {
+        String address = call.getString("address");
+        if (address == null || address.isEmpty()) {
+            call.reject("address required");
+            return;
+        }
+        BluetoothManager bm = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothDevice device = bm.getAdapter().getRemoteDevice(address);
+        bleServices.clear();
+        bleNotifyHex.clear();
+        bleGatt = device.connectGatt(getContext(), false, new BluetoothGattCallback() {
+            @Override
+            public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
+                android.util.Log.d("lidlprint", "BLE state " + newState + " (status " + status + ")");
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    try { g.discoverServices(); } catch (SecurityException ignored) { }
+                }
+            }
+
+            @Override
+            public void onServicesDiscovered(BluetoothGatt g, int status) {
+                android.util.Log.d("lidlprint", "BLE services discovered, status " + status);
+                try {
+                    for (BluetoothGattService svc : g.getServices()) {
+                        JSObject s = new JSObject();
+                        s.put("uuid", svc.getUuid().toString());
+                        JSArray chars = new JSArray();
+                        for (BluetoothGattCharacteristic c : svc.getCharacteristics()) {
+                            JSObject co = new JSObject();
+                            co.put("uuid", c.getUuid().toString());
+                            int props = c.getProperties();
+                            java.util.List<String> p = new java.util.ArrayList<>();
+                            if ((props & BluetoothGattCharacteristic.PROPERTY_WRITE) != 0)
+                                p.add("write");
+                            if ((props & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0)
+                                p.add("writeNR");
+                            if ((props & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0)
+                                p.add("notify");
+                            if ((props & BluetoothGattCharacteristic.PROPERTY_READ) != 0)
+                                p.add("read");
+                            co.put("props", String.join(",", p));
+                            chars.put(co);
+                        }
+                        s.put("characteristics", chars);
+                        bleServices.add(s);
+                    }
+                } catch (SecurityException ignored) { }
+            }
+
+            @Override
+            public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int status) {
+                android.util.Log.d("lidlprint", "BLE write -> " + c.getUuid() + " status " + status);
+            }
+
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c, byte[] value) {
+                String hex = bytesToHex(value);
+                android.util.Log.d("lidlprint", "BLE notify " + c.getUuid() + ": " + hex);
+                bleNotifyHex.add(hex);
+            }
+        });
+        if (bleGatt == null) {
+            call.reject("connectGatt failed");
+            return;
+        }
+        call.resolve();
+    }
+
+    /** The discovered GATT table (call ~1s after bleConnect). */
+    @PluginMethod
+    public void bleServices(PluginCall call) {
+        JSArray arr = new JSArray();
+        for (JSObject s : bleServices) arr.put(s);
+        JSObject ret = new JSObject();
+        ret.put("services", arr);
+        call.resolve(ret);
+    }
+
+    /** Enable notifications on a characteristic (writes the CCC descriptor). */
+    @PluginMethod
+    public void bleNotify(PluginCall call) {
+        String uuid = call.getString("uuid");
+        if (uuid == null || bleGatt == null) {
+            call.reject("uuid + connect required");
+            return;
+        }
+        BluetoothGattCharacteristic c = findChar(uuid);
+        if (c == null) {
+            call.reject("char not found");
+            return;
+        }
+        try {
+            bleGatt.setCharacteristicNotification(c, true);
+            BluetoothGattDescriptor d = c.getDescriptor(
+                    UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+            if (d != null) {
+                d.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                bleGatt.writeDescriptor(d);
+            }
+            call.resolve();
+        } catch (SecurityException e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    /** Write hex to a characteristic. */
+    @PluginMethod
+    public void bleWrite(PluginCall call) {
+        String uuid = call.getString("uuid");
+        String hex = call.getString("hex");
+        if (uuid == null || hex == null || bleGatt == null) {
+            call.reject("uuid + hex + connect required");
+            return;
+        }
+        BluetoothGattCharacteristic c = findChar(uuid);
+        if (c == null) {
+            call.reject("char not found");
+            return;
+        }
+        byte[] bytes = hexToBytes(hex);
+        try {
+            boolean ok;
+            if (Build.VERSION.SDK_INT >= 33) {
+                int type = (c.getProperties() & BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
+                        ? BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                        : BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE;
+                int rv = bleGatt.writeCharacteristic(c, bytes, type);
+                ok = rv == android.bluetooth.BluetoothStatusCodes.SUCCESS;
+            } else {
+                c.setValue(bytes);
+                ok = bleGatt.writeCharacteristic(c);
+            }
+            JSObject ret = new JSObject();
+            ret.put("ok", ok);
+            call.resolve(ret);
+        } catch (SecurityException e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    /** Drain queued notification packets (array of hex strings). */
+    @PluginMethod
+    public void bleReadNotify(PluginCall call) {
+        JSArray arr = new JSArray();
+        String h;
+        while ((h = bleNotifyHex.poll()) != null) arr.put(h);
+        JSObject ret = new JSObject();
+        ret.put("notifications", arr);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void bleDisconnect(PluginCall call) {
+        if (bleGatt != null) {
+            try { bleGatt.disconnect(); bleGatt.close(); } catch (Exception ignored) { }
+            bleGatt = null;
+        }
+        call.resolve();
+    }
+
+    private BluetoothGattCharacteristic findChar(String uuid) {
+        try {
+            for (BluetoothGattService svc : bleGatt.getServices()) {
+                BluetoothGattCharacteristic c = svc.getCharacteristic(UUID.fromString(uuid));
+                if (c != null) return c;
+            }
+        } catch (SecurityException ignored) { }
+        return null;
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
+    private static byte[] hexToBytes(String hex) {
+        String clean = hex.replaceAll("[^0-9a-fA-F]", "");
+        int len = clean.length() / 2;
+        byte[] out = new byte[len];
+        for (int i = 0; i < len; i++) {
+            out[i] = (byte) Integer.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+    }
+
+    // ---------------------------------------------------------------- classic SPP
 
     @PluginMethod
     public void listBonded(PluginCall call) {

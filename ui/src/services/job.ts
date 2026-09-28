@@ -210,6 +210,51 @@ function countColors(rgba: Uint8ClampedArray): number {
   return set.size;
 }
 
+// ---------------------------------------------------------------- BLE probe (RE tooling)
+// devtools console helpers — printer must be ON, app running:
+//   await __ble.scan()            -> named BLE advertisers
+//   await __ble.connect(addr)     -> GATT connect + discover (wait 1s)
+//   await __ble.services()        -> full GATT table dump
+//   await __ble.notify(uuid)      -> enable notifications on a char
+//   await __ble.write(uuid, hex)  -> write hex to a char
+//   await __ble.read()            -> drain notification packets (hex)
+//   await __ble.disconnect()
+;(window as any).__ble = {
+  p: () => (window as any).Capacitor?.Plugins?.BluetoothClassic,
+  async scan() {
+    const r = await this.p().bleScan({ scanMs: 8000 });
+    console.log('[ble] scan:', JSON.stringify(r.devices, null, 1));
+    return r.devices;
+  },
+  async connect(address: string) {
+    const r = await this.p().bleConnect({ address });
+    console.log('[ble] connect ->', JSON.stringify(r));
+    await new Promise((res) => setTimeout(res, 1500)); // discover
+    return this.services();
+  },
+  async services() {
+    const r = await this.p().bleServices();
+    console.log('[ble] GATT table:\n' + JSON.stringify(r.services, null, 1));
+    return r.services;
+  },
+  async notify(uuid: string) {
+    return this.p().bleNotify({ uuid });
+  },
+  async write(uuid: string, hex: string) {
+    const r = await this.p().bleWrite({ uuid, hex });
+    console.log('[ble] write', hex, '->', JSON.stringify(r));
+    return r;
+  },
+  async read() {
+    const r = await this.p().bleReadNotify();
+    console.log('[ble] notify:', JSON.stringify(r.notifications));
+    return r.notifications;
+  },
+  async disconnect() {
+    return this.p().bleDisconnect();
+  },
+};
+
 // ---------------------------------------------------------------- share intake
 
 declare global {
@@ -217,6 +262,51 @@ declare global {
     __onLidlPrintShare?: (data: { uri?: string; text?: string }) => void;
   }
 }
+
+// ---------------------------------------------------------------- BLE probe (RE tooling)
+// devtools console helpers — printer must be ON, app running:
+//   await __ble.scan()            -> named BLE advertisers
+//   await __ble.connect(addr)     -> GATT connect + discover (wait 1s)
+//   await __ble.services()        -> full GATT table dump
+//   await __ble.notify(uuid)      -> enable notifications on a char
+//   await __ble.write(uuid, hex)  -> write hex to a char
+//   await __ble.read()            -> drain notification packets (hex)
+//   await __ble.disconnect()
+;(window as any).__ble = {
+  p: () => (window as any).Capacitor?.Plugins?.BluetoothClassic,
+  async scan() {
+    const r = await this.p().bleScan({ scanMs: 8000 });
+    console.log('[ble] scan:', JSON.stringify(r.devices, null, 1));
+    return r.devices;
+  },
+  async connect(address: string) {
+    const r = await this.p().bleConnect({ address });
+    console.log('[ble] connect ->', JSON.stringify(r));
+    await new Promise((res) => setTimeout(res, 1500)); // discover
+    return this.services();
+  },
+  async services() {
+    const r = await this.p().bleServices();
+    console.log('[ble] GATT table:\n' + JSON.stringify(r.services, null, 1));
+    return r.services;
+  },
+  async notify(uuid: string) {
+    return this.p().bleNotify({ uuid });
+  },
+  async write(uuid: string, hex: string) {
+    const r = await this.p().bleWrite({ uuid, hex });
+    console.log('[ble] write', hex, '->', JSON.stringify(r));
+    return r;
+  },
+  async read() {
+    const r = await this.p().bleReadNotify();
+    console.log('[ble] notify:', JSON.stringify(r.notifications));
+    return r.notifications;
+  },
+  async disconnect() {
+    return this.p().bleDisconnect();
+  },
+};
 
 // ---------------------------------------------------------------- share intake
 // Mirrors zik4: darryncampbell intent-shim (getIntent = cold start,
