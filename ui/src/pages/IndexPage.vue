@@ -18,10 +18,12 @@
     <!-- ② Preview -->
     <div class="col column items-center justify-center q-pa-md preview-zone">
       <template v-if="preview.url">
-        <div class="paper relative-position" :style="{ '--preview-rows': preview.rows || 384 }">
-          <img :src="preview.url" class="preview-img" alt="print preview" />
+        <div class="fit-wrap col column items-center justify-center">
+          <div class="paper relative-position" :style="{ '--preview-rows': preview.rows || 384 }">
+            <img :src="preview.url" class="preview-img" alt="print preview" />
+          </div>
         </div>
-        <div class="text-caption text-grey-7 q-mt-sm">
+        <div class="col-auto text-caption text-grey-7 q-mt-xs">
           prints at 384 × {{ preview.rows }} dots
         </div>
       </template>
@@ -204,7 +206,13 @@ onMounted(() => void consumeShare());
 }
 .preview-zone {
   min-height: 0;
-  overflow-y: auto; /* long strips scroll here, controls stay put */
+  overflow: hidden; /* the paper fits inside; nothing may push the footer out */
+}
+/* inner wrapper that owns the available height, so the caption doesn't steal
+   from the paper's max-height */
+.fit-wrap {
+  min-height: 0;
+  width: 100%;
 }
 .paper {
   background: #fff;
