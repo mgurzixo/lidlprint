@@ -63,6 +63,10 @@ public class BluetoothClassicPlugin extends Plugin {
     private final Object ioLock = new Object();
 
     // ---- BLE probe state (RE tooling) ----
+    private final Object writeLock = new Object();
+    private boolean writePending = false;
+    private int writeStatus = -1;
+
     private BluetoothLeScanner bleScanner;
     private ScanCallback bleScanCallback;
     private BluetoothGatt bleGatt;
@@ -182,6 +186,11 @@ public class BluetoothClassicPlugin extends Plugin {
             @Override
             public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int status) {
                 android.util.Log.d("lidlprint", "BLE write -> " + c.getUuid() + " status " + status);
+                synchronized (writeLock) {
+                    writePending = false;
+                    writeStatus = status;
+                    writeLock.notifyAll();
+                }
             }
 
             @Override
@@ -235,7 +244,9 @@ public class BluetoothClassicPlugin extends Plugin {
         }
     }
 
-    /** Write hex to a characteristic. */
+    /** Write hex to a characteristic — QUEUED: waits for onCharacteristicWrite
+     *  before resolving, so consecutive JS writes are delivered in order
+     *  without silent GATT queue overruns. */
     @PluginMethod
     public void bleWrite(PluginCall call) {
         String uuid = call.getString("uuid");
@@ -251,6 +262,14 @@ public class BluetoothClassicPlugin extends Plugin {
         }
         byte[] bytes = hexToBytes(hex);
         try {
+            // wait for any in-flight write to complete before queueing this one
+            synchronized (writeLock) {
+                long deadline = System.currentTimeMillis() + 3000;
+                while (writePending && System.currentTimeMillis() < deadline) {
+                    try { writeLock.wait(200); } catch (InterruptedException ie) { break; }
+                }
+                writePending = true;
+            }
             boolean ok;
             if (Build.VERSION.SDK_INT >= 33) {
                 int type = (c.getProperties() & BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
