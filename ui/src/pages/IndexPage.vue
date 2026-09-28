@@ -28,10 +28,10 @@
       <div v-else class="text-grey-6 text-center q-pa-xl">
         Share an image to LidlPrint, or:
         <div class="row justify-center q-gutter-sm q-mt-sm">
-          <q-btn round unelevated color="primary" icon="add_photo_alternate" @click="pickImage">
+          <q-btn round unelevated size="22px" color="primary" icon="add_photo_alternate" @click="pickImage">
             <q-tooltip>Pick image</q-tooltip>
           </q-btn>
-          <q-btn round unelevated color="primary" icon="content_paste" @click="pasteImage">
+          <q-btn round unelevated size="22px" color="primary" icon="content_paste" @click="pasteImage">
             <q-tooltip>Paste image</q-tooltip>
           </q-btn>
         </div>
@@ -43,8 +43,7 @@
       <div class="row no-wrap q-gutter-x-sm">
         <q-btn-toggle
           v-model="density"
-          class="col-auto"
-          dense
+          class="col-auto fat-toggle"
           unelevated
           toggle-color="primary"
           color="grey-3"
@@ -59,8 +58,7 @@
         </q-btn-toggle>
         <q-btn-toggle
           v-model="dither"
-          class="col-auto"
-          dense
+          class="col-auto fat-toggle"
           unelevated
           toggle-color="primary"
           color="grey-3"
@@ -77,7 +75,7 @@
           v-if="preview.url"
           flat
           round
-          dense
+          size="18px"
           color="grey-7"
           icon="delete"
           @click="clearImage"
@@ -209,5 +207,14 @@ onMounted(() => void consumeShare());
 }
 .print-btn {
   border-radius: 8px;
+}
+/* fat fingers: 48px touch targets on all icon controls */
+:deep(.fat-toggle .q-btn) {
+  min-height: 48px;
+  min-width: 48px;
+  font-size: 26px; /* icon glyph size */
+}
+:deep(.fat-toggle .q-btn .q-icon) {
+  font-size: 26px;
 }
 </style>
