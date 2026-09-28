@@ -249,9 +249,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         console.log('[ble] printer not found in:', r.devices);
         return 'not found';
       }
-      addr = hit.address;
-      localStorage.setItem('lidlprint.bleAddr', addr);
-      console.log('[ble] printer address saved:', addr);
+      const found: string = hit.address;
+      addr = found;
+      localStorage.setItem('lidlprint.bleAddr', found);
+      console.log('[ble] printer address saved:', found);
     }
     // retry loop: GATT connects to this printer are flaky (error 133 etc.)
     const ATTEMPTS = 4;
