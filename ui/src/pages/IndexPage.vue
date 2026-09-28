@@ -218,15 +218,16 @@ onMounted(() => void consumeShare());
   background: #fff;
   border: 1px dashed #bbb;
   overflow: hidden;
-  /* fit the whole bitmap inside the zone: max both dims, keep aspect */
-  max-width: 100%;
-  max-height: 100%;
-  aspect-ratio: 384 / var(--preview-rows, 384);
+  display: flex; /* shrink-wrap the fitted img */
 }
 .preview-img {
   display: block;
-  width: 100%;
-  height: 100%;
+  /* THE fit: constrained by the wrapper box (which is zone-height-limited),
+     keeps the bitmap aspect — browser solves the largest fitting size */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
 }
 .print-btn {
