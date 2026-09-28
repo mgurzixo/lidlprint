@@ -299,7 +299,8 @@ function bleP(): any {
     const bitmap = rasterize();
     const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
     full.set(bitmap.data, 0);
-    return this.sendJob(full, bitmap.height + 80, 0);
+    // compressed + row-paced: same settings as the successful black-strip test
+    return this.sendJob(full, bitmap.height + 80, 6, 100);
   },
 
   /** Send a bitmap job over BLE. level: deflate level; rowMs: pause per row. */
