@@ -76,7 +76,7 @@ export function refreshBwPreview(): void {
 
 /** density 0=Light / 1=Normal / 2=Darker -> threshold bias for the raster */
 function densityBias(): number {
-  return job.density === 0 ? 48 : job.density === 2 ? -48 : 0;
+  return job.density === 0 ? -48 : job.density === 2 ? 48 : 0;
 }
 
 function rasterize(): Bitmap {

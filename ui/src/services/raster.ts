@@ -89,7 +89,8 @@ export function scaleGrayBilinear(src: Gray, newWidth: number, newHeight: number
 /** Simple threshold — for line art / QR / text that must stay crisp.
  * `bias` shifts the cut: negative = darker (more black), positive = lighter. */
 export function threshold(gray: Gray, blackBelow = 128, bias = 0): Bitmap {
-  const cut = Math.max(1, Math.min(255, blackBelow - bias));
+  // bias > 0 darkens: raise the cut so more pixels fall below it (black)
+  const cut = Math.max(1, Math.min(255, blackBelow + bias));
   return packBits(gray.data, gray.width, gray.height, (v) => v < cut);
 }
 
@@ -102,6 +103,7 @@ export function ditherFloydSteinberg(gray: Gray, bias = 0): Bitmap {
   const buf = Float32Array.from(gray.data);
   // bias: negative darkens (values pushed toward black), positive lightens
   if (bias !== 0) {
+    // bias > 0 darkens: lower gray values so more land black
     for (let i = 0; i < buf.length; i++) buf[i] = Math.max(0, Math.min(255, buf[i]! - bias));
   }
   const out1bpp = new Uint8Array(w * h);

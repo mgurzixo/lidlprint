@@ -18,7 +18,7 @@
     <!-- ② Preview -->
     <div class="col column items-center justify-center q-pa-md preview-zone">
       <template v-if="preview.url">
-        <div class="paper relative-position">
+        <div class="paper relative-position" :style="paperStyle">
           <img :src="preview.url" class="preview-img" alt="print preview" />
         </div>
         <div class="row items-center justify-between full-width q-mt-sm">
@@ -105,6 +105,20 @@ const {
   consumeShare,
 } = useJob();
 
+// WYSIWYG fit: whole image visible at max size.
+// Tall strips (rows/width >= zone aspect) are height-limited; wide ones 48mm-capped.
+const paperStyle = computed(() => {
+  const rows = preview.rows || 1;
+  const aspect = rows / 384; // height / width of the bitmap
+  // zone is roughly (viewport-height minus ~320px chrome) tall and ~full width
+  const zoneH = Math.max(220, window.innerHeight - 340);
+  const zoneW = Math.min(window.innerWidth - 48, 384); // px available
+  const hLimited = zoneH / zoneW < aspect;
+  return hLimited
+    ? { height: `${zoneH}px`, width: 'auto' }
+    : { width: 'min(100%, 48mm)' };
+});
+
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
   if (btState.value === 'connected') return 'Connected';
@@ -161,16 +175,15 @@ onMounted(() => void consumeShare());
   overflow-y: auto; /* long strips scroll here, controls stay put */
 }
 .paper {
-  /* true paper strip: 48 mm print width, grows downward as the bitmap is tall */
+  /* paper strip — sized by paperStyle so the WHOLE bitmap fits the zone */
   background: #fff;
   border: 1px dashed #bbb;
   overflow: hidden;
-  width: min(100%, 48mm);
   margin: 0 auto;
 }
 .preview-img {
   display: block;
-  width: 100%; /* bitmap IS 384 dots wide — fills the paper edge to edge */
+  width: 100%;
   height: auto;
 }
 .print-btn {
