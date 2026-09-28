@@ -16,7 +16,10 @@
     </div>
 
     <!-- ② Preview -->
-    <div class="col column items-center justify-center q-pa-md preview-zone">
+    <div
+      ref="zoneRef"
+      class="col column items-center justify-center q-pa-md preview-zone"
+    >
       <template v-if="preview.url">
         <div class="paper relative-position" :style="paperStyle">
           <img :src="preview.url" class="preview-img" alt="print preview" />
@@ -40,7 +43,7 @@
 
     <!-- ③ Controls (one icon line) + ④ Print -->
     <div class="controls q-px-md q-pb-md q-gutter-y-sm">
-      <div class="row no-wrap q-gutter-x-sm">
+      <div class="row no-wrap items-center q-gutter-x-xs icon-line">
         <q-btn-toggle
           v-model="density"
           class="col-auto fat-toggle"
@@ -110,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { bt as btStore, useBt } from '@/services/bt';
@@ -147,18 +150,24 @@ const {
   consumeShare,
 } = useJob();
 
-// WYSIWYG fit: whole image visible at max size.
-// Tall strips (rows/width >= zone aspect) are height-limited; wide ones 48mm-capped.
+// WYSIWYG fit measured from the REAL preview zone (not guessed viewport math).
+// Whole image visible at max size: height-limited when tall, else 48mm wide.
+const zoneRef = ref<HTMLElement | null>(null);
+const zoneBox = ref({ w: 384, h: 480 });
+function measureZone(): void {
+  const el = zoneRef.value;
+  if (!el) return;
+  zoneBox.value = { w: el.clientWidth, h: el.clientHeight };
+}
 const paperStyle = computed(() => {
   const rows = preview.rows || 1;
-  const aspect = rows / 384; // height / width of the bitmap
-  // zone is roughly (viewport-height minus ~320px chrome) tall and ~full width
-  const zoneH = Math.max(220, window.innerHeight - 340);
-  const zoneW = Math.min(window.innerWidth - 48, 384); // px available
-  const hLimited = zoneH / zoneW < aspect;
+  const aspect = rows / 384;
+  const { w: zoneW, h: zoneH } = zoneBox.value;
+  const pad = 18; // paper border + breathing room
+  const hLimited = (zoneH - pad) / (zoneW - pad) < aspect;
   return hLimited
-    ? { height: `${zoneH}px`, width: 'auto' }
-    : { width: 'min(100%, 48mm)' };
+    ? { height: `${zoneH - pad}px`, width: 'auto' }
+    : { width: `min(100%, 48mm)` };
 });
 
 const connectLabel = computed(() => {
@@ -183,7 +192,16 @@ function onConnectTap() {
   void bt.connect();
 }
 
-onMounted(() => void consumeShare());
+onMounted(() => {
+  void consumeShare();
+  measureZone();
+  window.addEventListener('resize', measureZone);
+});
+// re-measure when an image arrives (zone size settles after layout)
+watch(
+  () => preview.url,
+  () => nextTick(measureZone),
+);
 </script>
 
 <style scoped>
@@ -233,11 +251,17 @@ onMounted(() => void consumeShare());
 }
 /* fat fingers: 48px touch targets on all icon controls */
 :deep(.fat-toggle .q-btn) {
-  min-height: 48px;
-  min-width: 48px;
-  font-size: 26px; /* icon glyph size */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 6px;
 }
 :deep(.fat-toggle .q-btn .q-icon) {
-  font-size: 26px;
+  font-size: 22px;
+}
+.icon-line {
+  width: 100%;
+  max-width: 100%;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 </style>

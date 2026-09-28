@@ -178,12 +178,21 @@ async function loadImage(uri: string): Promise<void> {
     img.src = src;
   });
   let w = img.naturalWidth, h = img.naturalHeight;
+  // downscale once at load: cap the long side at 2x head width — the printer
+  // only ever uses 384px wide, so this loses nothing and makes rotate/raster
+  // instant even for 12MP photos
+  const MAX_SIDE = 384 * 2;
+  if (Math.max(w, h) > MAX_SIDE) {
+    const k = MAX_SIDE / Math.max(w, h);
+    w = Math.round(w * k);
+    h = Math.round(h * k);
+  }
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('no 2d context');
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, w, h);
   let rgba = ctx.getImageData(0, 0, w, h).data;
   console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
   setPreview(rgba, w, h);
