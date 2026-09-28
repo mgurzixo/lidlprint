@@ -130,6 +130,8 @@ The captures and decoded images live in
       battery warm-up, auto-reconnect
 - [x] Share images from any app (ZK QR codes print at 40 mm, easily scannable)
 - [x] Pick image / paste from clipboard
+- [x] WYSIWYG: preview shows the exact B/W bitmap that will print, live
+- [x] Rotate 90°, Lighter/Normal/Darker, Art/Photo — one icon line
 - [x] In-app runtime permission dialog (fresh install → Connect → grant → green)
 - [x] Release signing
 

@@ -149,10 +149,6 @@ const {
   consumeShare,
 } = useJob();
 
-// WYSIWYG fit is pure CSS now: the paper keeps the bitmap aspect ratio and is
-// constrained by both the zone width and height (max-width/max-height + margin
-// auto centering) — the browser picks the largest box that fits both.
-
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
   if (btState.value === 'connected') return 'Connected';
