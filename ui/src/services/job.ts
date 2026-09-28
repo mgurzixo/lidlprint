@@ -40,6 +40,40 @@ export const job = reactive({
   paperOk: true,
 });
 
+/** Render the 1-bit bitmap to a dataURL — WYSIWYG: this IS what prints. */
+let bwCanvas: HTMLCanvasElement | null = null;
+function renderBitmapPreview(bm: Bitmap): string {
+  bwCanvas = bwCanvas ?? document.createElement('canvas');
+  bwCanvas.width = bm.width;
+  bwCanvas.height = bm.height;
+  const ctx = bwCanvas.getContext('2d');
+  if (!ctx) throw new Error('no 2d context');
+  const img = ctx.createImageData(bm.width, bm.height);
+  const px = img.data;
+  for (let y = 0; y < bm.height; y++) {
+    for (let x = 0; x < bm.width; x++) {
+      const black = (bm.data[y * bm.bytesPerRow + (x >> 3)]! & (0x80 >> (x & 7))) !== 0;
+      const o = (y * bm.width + x) * 4;
+      const v = black ? 0 : 255; // 1 = black
+      px[o] = v; px[o + 1] = v; px[o + 2] = v; px[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return bwCanvas.toDataURL('image/png');
+}
+
+/** Re-rasterize the loaded image and refresh the WYSIWYG preview. */
+export function refreshBwPreview(): void {
+  const p = job.preview;
+  if (!p.rgba) return;
+  try {
+    const bm = rasterize();
+    p.url = renderBitmapPreview(bm);
+  } catch (e) {
+    console.log('[lidlprint] refreshBwPreview error:', String(e));
+  }
+}
+
 /** density 0=Light / 1=Normal / 2=Darker -> threshold bias for the raster */
 function densityBias(): number {
   return job.density === 0 ? 48 : job.density === 2 ? -48 : 0;
@@ -143,8 +177,9 @@ async function loadImage(uri: string): Promise<void> {
     const tw = w; w = h; h = tw;
     rgba = r;
   }
-  // dither choice is user-persistent; no auto-switch
-  setPreview(rgba, w, h, src.startsWith('blob:') || src.startsWith('data:') ? src : undefined);
+  setPreview(rgba, w, h);
+  // WYSIWYG: replace source preview with the rasterized B/W version
+  refreshBwPreview();
 }
 
 function countColors(rgba: Uint8ClampedArray): number {
@@ -350,6 +385,7 @@ export function useJob() {
       set: (v: 'photo' | 'art') => {
         job.dither = v;
         localStorage.setItem('lidlprint.dither', v);
+        refreshBwPreview(); // WYSIWYG: live update
       },
     }),
     density: computed({
@@ -357,6 +393,7 @@ export function useJob() {
       set: (v: 0 | 1 | 2) => {
         job.density = v;
         localStorage.setItem('lidlprint.density', String(v));
+        refreshBwPreview(); // WYSIWYG: live update
       },
     }),
     printLabel: computed(() =>
