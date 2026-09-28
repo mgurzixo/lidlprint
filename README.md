@@ -161,10 +161,32 @@ printer.
 
 ## Related work
 
+Same OEM / same LuckPrinter SDK family (Xiamen Print Future, 159+ models):
+
 - [atctwo — Reverse Engineering a Thermal Label Printer](https://atctwo.net/posts/2024/07/16/thermal-printer.html)
   (Lidl IAN 470561_2407, DP-L13, gen-1 protocol)
+- [ChiaraCannolee/thermal-pocket-printer-basic](https://github.com/ChiaraCannolee/thermal-pocket-printer-basic) —
+  DP-L1S ("C&Co 3128", Action): BLE RE with full protocol reference; the
+  closest cousin to this project
+- [0xMH/fichero-printer](https://github.com/0xMH/fichero-printer) —
+  Fichero D11s (AiYin variant, same SDK)
+
+BLE thermal printing on the same Nordic/ISSC UART GATT:
+
+- [joshmcarthur/yhk-mini-printer](https://github.com/joshmcarthur/yhk-mini-printer) —
+  YHK-962D over the identical `49535343-…` UART service; pacing data used here
+- [ramo828/tiny_print_library](https://github.com/ramo828/tiny_print_library) —
+  X5H-class BLE printers from ESP32
+- [parzivail's BLE thermal printer write-up](https://parzivail.github.io/ble-thermal-printer/)
+- [tovganesh/bleprinter-ios](https://github.com/tovganesh/bleprinter-ios) —
+  early iOS BLE printing example
+- [Hasib — How I Reverse-Engineered a Thermal Printer](https://www.raisulhasib.dev/blog/reverse-engineered-a-thermal-printer) —
+  cat-printer protocol family (`51 78` frames), a useful contrast
+
+Similar opcode family:
+
 - [bitrate16/peripage-python](https://github.com/bitrate16/peripage-python) —
-  PeriPage A6/A6+/A40, same `10 FF …` opcode family
+  PeriPage A6/A6+/A40
 - [eliasweingaertner/peripage-A6-bluetooth](https://github.com/eliasweingaertner/peripage-A6-bluetooth)
 
 ## License

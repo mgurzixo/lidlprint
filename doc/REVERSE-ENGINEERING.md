@@ -133,7 +133,60 @@ classic `1D 76 30 00 xL xH yL yH` ESC/POS raster header (12 bytes/row,
 240 rows for 30 mm labels). If your printer answers `"DP-L13"` to
 `10 FF 20 F0`, use that format — see atctwo's post.
 
-## 5. Open questions
+## 5. The LuckPrinter SDK lineage (identification)
+
+The printer family is now positively identified. Our unit descends from the
+**LuckPrinter SDK** (`com.luckprinter.sdk_new`) by **Xiamen Print Future
+Technology Co., Ltd** (also branded Lujiang) — an SDK embedded in 159+
+printer models. The companion apps embed a device-class hierarchy:
+
+```
+BaseDevice
+└── BaseNormalDevice (print flow, bitmap encoding, command protocol)
+    ├── DP_L1S / DP_L1 / DP_D1 / DP_S1  (Crafts & Co, Action, ...)
+    ├── LuckP_L1 / LuckP_D1
+    └── MiniPocketPrinter / PPD1 / PPS1  <-- our class
+```
+
+Cross-references that confirmed the lineage (same OEM, same `10 FF` dialect,
+same begin/wake/raster/feed/end sequence):
+
+- **DP-L1S** ("C&Co 3128", Action stores) — fully documented BLE RE:
+  [ChiaraCannolee/thermal-pocket-printer-basic](https://github.com/ChiaraCannolee/thermal-pocket-printer-basic)
+  (decompiled "Lucky Jingle" APK). BLE service `ff00` (write `ff02`, notify
+  `ff01`), **uncompressed GS v 0 raster** accepted, `10 FF F1 03`-style
+  sequence identical to ours.
+- **DP-L13** (Lidl IAN 470561_2407, gen 1) — atctwo's teardown; same OEM.
+- **Our A2Y** (Lidl IAN 508705_2507, gen 2) — this project.
+- **Fichero D11s** — same SDK, AiYin variant:
+  [0xMH/fichero-printer](https://github.com/0xMH/fichero-printer).
+
+## 6. BLE transport (gen-2 "A2Y") — experimental findings
+
+The gen-2 unit ALSO speaks the full `10 FF` protocol over BLE, in addition
+to classic SPP:
+
+- Advertises as **`Mini Pocket Printer_BLE`** (BLE address differs from the
+  classic MAC by the first byte: `5E:55:…` vs `55:55:…`).
+- **Nordic UART Service (ISSC Transparent UART)** — same GATT as the YHK
+  printer family:
+  - Service `49535343-fe7d-4ae5-8fa9-9fafd205e455`
+  - Write `49535343-8841-43f4-a8d4-ecbe34729bb3`
+  - Notify `49535343-1e4d-4bd9-ba61-23c647249616`
+- Also exposes: `ff00` service (write `ff02` / notify `ff01`), `18f0`, and
+  the gen-1 UUID `e7810a71-…` (single write+notify char).
+- **Verified working over BLE (Nordic UART)**: model query `10 FF 20 F0` →
+  `41 32 59` ("A2Y"), battery `10 FF 50 F1` → `00 64`, and small print
+  jobs (≤300 rows, ≤1 chunk) print full-length and clean.
+- Known limitation (under investigation): multi-KB compressed jobs
+  desync after ~5 mm. Segmented printing (200-row bands as independent
+  jobs) is the current workaround. GATT writes MUST be queued (wait for
+  `onCharacteristicWrite`) or consecutive writes silently drop.
+- Reference for the UART pacing on this GATT class:
+  [joshmcarthur/yhk-mini-printer](https://github.com/joshmcarthur/yhk-mini-printer)
+  (182 B / 40 ms "sweet spot", few-KB printer buffer).
+
+## 7. Open questions
 
 - Meaning of `m`, `c1 c2 c3` header bytes (the app seems to tolerate any
   value we tried — decode works with captured headers reused verbatim).
@@ -145,7 +198,7 @@ classic `1D 76 30 00 xL xH yL yH` ESC/POS raster header (12 bytes/row,
 - BLE GATT surface of gen 2 (was not advertising when we looked; the app
   used classic SPP).
 
-## 6. Reproduce it yourself
+## 8. Reproduce it yourself
 
 Everything in this repo is MIT. The TypeScript encoder
 (`src/services/printer-protocol.ts`) encodes both generations; captures
