@@ -107,12 +107,46 @@
         :disable="!canPrint"
         @click="doPrint"
       />
+      <div class="row no-wrap items-center q-gutter-x-xs">
+        <q-btn
+          flat
+          round
+          dense
+          :color="bleState === 'ready' ? 'positive' : 'grey-7'"
+          :icon="bleState === 'ready' ? 'bluetooth_connect' : 'bluetooth'"
+          @click="bleGo"
+        >
+          <q-tooltip>BLE connect (printer ON)</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          color="grey-7"
+          icon="print"
+          :disable="bleState !== 'ready' || !preview.url"
+          @click="blePrint"
+        >
+          <q-tooltip>Print over BLE</q-tooltip>
+        </q-btn>
+        <q-btn
+          v-if="bleState !== 'off'"
+          flat
+          round
+          dense
+          color="grey-7"
+          icon="bluetooth_disabled"
+          @click="bleOff"
+        >
+          <q-tooltip>BLE disconnect</q-tooltip>
+        </q-btn>
+      </div>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { bt as btStore, useBt } from '@/services/bt';
@@ -148,6 +182,38 @@ const {
   pickImage,
   consumeShare,
 } = useJob();
+
+// ---- BLE footer buttons (experimental, RE phase) ----
+const bleState = ref<'off' | 'busy' | 'ready'>('off');
+
+async function bleGo(): Promise<void> {
+  if (bleState.value === 'busy') return;
+  bleState.value = 'busy';
+  try {
+    const r = await (window as any).__ble.go();
+    bleState.value = r === 'ready' ? 'ready' : 'off';
+  } catch (e) {
+    console.log('[ble] go error:', String(e));
+    bleState.value = 'off';
+  }
+}
+
+async function blePrint(): Promise<void> {
+  if (bleState.value !== 'ready') return;
+  try {
+    await (window as any).__ble.print();
+  } catch (e) {
+    console.log('[ble] print error:', String(e));
+  }
+}
+
+async function bleOff(): Promise<void> {
+  try {
+    await (window as any).__ble.off();
+  } finally {
+    bleState.value = 'off';
+  }
+}
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
