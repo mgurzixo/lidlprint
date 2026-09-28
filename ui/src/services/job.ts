@@ -278,6 +278,14 @@ function bleP(): any {
     return r.notifications;
   },
 
+  /** Test print: n rows of solid black (tiny job — isolates size vs protocol). */
+  /** Test: n fully-black rows, compressed, one row per 100ms. */
+  async testPrint(rows = 20): Promise<string> {
+    if (!BLE.connected) await this.go();
+    const data = new Uint8Array(48 * rows).fill(0xff);
+    return this.sendJob(data, rows, 6, 100);
+  },
+
   /** Print the loaded image over BLE — full job, 160-byte chunks. */
   async print(): Promise<string> {
     if (!job.preview.rgba) return 'no image loaded';
@@ -285,18 +293,39 @@ function bleP(): any {
     const bitmap = rasterize();
     const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
     full.set(bitmap.data, 0);
-    const { CMD, encodeJob } = await import('./printer-protocol');
+    return this.sendJob(full, bitmap.height + 80, 0);
+  },
+
+  /** Send a bitmap job over BLE. level: deflate level; rowMs: pause per row. */
+  async sendJob(bitmapBytes: Uint8Array, rows: number, level = 6, rowMs = 0): Promise<string> {
+    const { encodeJob } = await import('./printer-protocol');
     const pakoMod = await import('pako');
-    const chunks = encodeJob(full, bitmap.height + 80, {
+    const chunks = encodeJob(bitmapBytes, rows, {
       gen: 2,
-      deflate: (d) => pakoMod.deflateRaw(d, { level: 0 }) as Uint8Array,
+      deflate: (d) => pakoMod.deflateRaw(d, { level }) as Uint8Array,
       mode: 0x0c,
     });
-    console.log('[ble] printing', bitmap.height + 80, 'rows over BLE…');
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    console.log(`[ble] printing ${rows} rows, level ${level}, ${total} bytes, ${rowMs}ms/row`);
+    // the image chunk is one deflate stream; pace its transfer by ROWS:
+    // bytes per row = 48 -> derive how many image-chunk bytes correspond to one row
     for (const chunk of chunks) {
-      for (let off = 0; off < chunk.length; off += 160) {
-        const part = chunk.subarray(off, Math.min(off + 160, chunk.length));
-        await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
+      if (rowMs > 0 && chunk.length > 300) {
+        // image payload: pace row-equivalents of the COMPRESSED stream.
+        // compressed bytes per row = (chunk.length - 12) / rows
+        const bpr = Math.max(1, Math.ceil((chunk.length - 12) / rows));
+        for (let off = 0; off < chunk.length; off += bpr) {
+          const end = Math.min(off + bpr, chunk.length);
+          await this.raw(
+            Array.from(chunk.subarray(off, end), (b) => b.toString(16).padStart(2, '0')).join(''),
+          );
+          await sleep(rowMs);
+        }
+      } else {
+        for (let off = 0; off < chunk.length; off += 160) {
+          const part = chunk.subarray(off, Math.min(off + 160, chunk.length));
+          await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
+        }
       }
     }
     // wait for the ready sentinel
