@@ -211,6 +211,115 @@ function countColors(rgba: Uint8ClampedArray): number {
 }
 
 // ---------------------------------------------------------------- BLE probe (RE tooling)
+// One-liners for the devtools console (printer ON, app running):
+//   await __ble.go()              connect to the printer over BLE (auto-scan)
+//   await __ble.cmd("10ff20f0")   send hex, read reply
+//   await __ble.print()           print the loaded image over BLE
+//   await __ble.raw("...hex...")  raw stream write (no auto-read)
+//   await __ble.read()            drain notifications
+//   await __ble.off()             disconnect
+const BLE = {
+  SVC: '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+  WRITE: '49535343-8841-43f4-a8d4-ecbe34729bb3',
+  NOTIFY: '49535343-1e4d-4bd9-ba61-23c647249616',
+  connected: false,
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function bleP(): any {
+  return (window as any).Capacitor?.Plugins?.BluetoothClassic;
+}
+
+(window as any).__ble = {
+  async go(): Promise<string> {
+    const p = bleP();
+    // scan if we don't know the address yet
+    let addr = (window as any).__bleAddr;
+    if (!addr) {
+      console.log('[ble] scanning 6s for Mini Pocket Printer_BLE…');
+      const r = await p.bleScan({ scanMs: 6000 });
+      const hit = (r.devices as any[]).find((d) => d.name?.includes('Mini Pocket'));
+      if (!hit) {
+        console.log('[ble] printer not found in:', r.devices);
+        return 'not found';
+      }
+      addr = (window as any).__bleAddr = hit.address;
+    }
+    console.log('[ble] connecting', addr, '…');
+    await p.bleConnect({ address: addr });
+    await sleep(2000); // service discovery
+    const t = await p.bleServices();
+    console.log('[ble] GATT table:\n' + JSON.stringify(t.services, null, 1));
+    // enable notifications on the Nordic UART
+    await p.bleNotify({ uuid: BLE.NOTIFY });
+    await sleep(1500); // CCC settle — GATT ops are strictly serialized
+    BLE.connected = true;
+    console.log('[ble] READY. Try: await __ble.cmd("10ff20f0")');
+    return 'ready';
+  },
+
+  async cmd(hex: string): Promise<string[]> {
+    const p = bleP();
+    await p.bleWrite({ uuid: BLE.WRITE, hex });
+    await sleep(700);
+    const r = await p.bleReadNotify();
+    console.log('[ble]', hex, '->', JSON.stringify(r.notifications));
+    return r.notifications;
+  },
+
+  async raw(hex: string): Promise<void> {
+    await bleP().bleWrite({ uuid: BLE.WRITE, hex });
+    await sleep(60); // GATT serialization + printer pacing
+  },
+
+  async read(): Promise<string[]> {
+    const r = await bleP().bleReadNotify();
+    console.log('[ble] notify:', JSON.stringify(r.notifications));
+    return r.notifications;
+  },
+
+  /** Print the loaded image over BLE — full job, 160-byte chunks. */
+  async print(): Promise<string> {
+    if (!job.preview.rgba) return 'no image loaded';
+    if (!BLE.connected) await this.go();
+    const bitmap = rasterize();
+    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
+    full.set(bitmap.data, 0);
+    const { CMD, encodeJob } = await import('./printer-protocol');
+    const pakoMod = await import('pako');
+    const chunks = encodeJob(full, bitmap.height + 80, {
+      gen: 2,
+      deflate: (d) => pakoMod.deflateRaw(d, { level: 0 }) as Uint8Array,
+      mode: 0x0c,
+    });
+    console.log('[ble] printing', bitmap.height + 80, 'rows over BLE…');
+    for (const chunk of chunks) {
+      for (let off = 0; off < chunk.length; off += 160) {
+        const part = chunk.subarray(off, Math.min(off + 160, chunk.length));
+        await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
+      }
+    }
+    // wait for the ready sentinel
+    for (let i = 0; i < 20; i++) {
+      await sleep(500);
+      const r = await bleP().bleReadNotify();
+      const joined = (r.notifications as string[]).join('');
+      if (joined.includes('aa0d0a') || joined.includes('aa')) {
+        console.log('[ble] DONE (aa received)');
+        return 'done';
+      }
+    }
+    console.log('[ble] no aa sentinel — check the paper');
+    return 'no sentinel';
+  },
+
+  async off(): Promise<void> {
+    await bleP().bleDisconnect();
+    BLE.connected = false;
+    console.log('[ble] disconnected');
+  },
+};
+
 // ---------------------------------------------------------------- share intake// ---------------------------------------------------------------- share intake
 
 declare global {
@@ -218,51 +327,6 @@ declare global {
     __onLidlPrintShare?: (data: { uri?: string; text?: string }) => void;
   }
 }
-
-// ---------------------------------------------------------------- BLE probe (RE tooling)
-// devtools console helpers — printer must be ON, app running:
-//   await __ble.scan()            -> named BLE advertisers
-//   await __ble.connect(addr)     -> GATT connect + discover (wait 1s)
-//   await __ble.services()        -> full GATT table dump
-//   await __ble.notify(uuid)      -> enable notifications on a char
-//   await __ble.write(uuid, hex)  -> write hex to a char
-//   await __ble.read()            -> drain notification packets (hex)
-//   await __ble.disconnect()
-;(window as any).__ble = {
-  p: () => (window as any).Capacitor?.Plugins?.BluetoothClassic,
-  async scan() {
-    const r = await this.p().bleScan({ scanMs: 8000 });
-    console.log('[ble] scan:', JSON.stringify(r.devices, null, 1));
-    return r.devices;
-  },
-  async connect(address: string) {
-    const r = await this.p().bleConnect({ address });
-    console.log('[ble] connect ->', JSON.stringify(r));
-    await new Promise((res) => setTimeout(res, 1500)); // discover
-    return this.services();
-  },
-  async services() {
-    const r = await this.p().bleServices();
-    console.log('[ble] GATT table:\n' + JSON.stringify(r.services, null, 1));
-    return r.services;
-  },
-  async notify(uuid: string) {
-    return this.p().bleNotify({ uuid });
-  },
-  async write(uuid: string, hex: string) {
-    const r = await this.p().bleWrite({ uuid, hex });
-    console.log('[ble] write', hex, '->', JSON.stringify(r));
-    return r;
-  },
-  async read() {
-    const r = await this.p().bleReadNotify();
-    console.log('[ble] notify:', JSON.stringify(r.notifications));
-    return r.notifications;
-  },
-  async disconnect() {
-    return this.p().bleDisconnect();
-  },
-};
 
 // ---------------------------------------------------------------- share intake
 // Mirrors zik4: darryncampbell intent-shim (getIntent = cold start,
