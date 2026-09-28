@@ -239,8 +239,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 (window as any).__ble = {
   async go(): Promise<string> {
     const p = bleP();
-    // scan if we don't know the address yet
-    let addr = (window as any).__bleAddr;
+    // persisted address: skip scanning on later launches entirely
+    let addr = localStorage.getItem('lidlprint.bleAddr');
     if (!addr) {
       console.log('[ble] scanning 6s for Mini Pocket Printer_BLE…');
       const r = await p.bleScan({ scanMs: 6000 });
@@ -249,7 +249,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         console.log('[ble] printer not found in:', r.devices);
         return 'not found';
       }
-      addr = (window as any).__bleAddr = hit.address;
+      addr = hit.address;
+      localStorage.setItem('lidlprint.bleAddr', addr);
+      console.log('[ble] printer address saved:', addr);
     }
     // retry loop: GATT connects to this printer are flaky (error 133 etc.)
     const ATTEMPTS = 4;
@@ -286,6 +288,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       await sleep(1000);
     }
     console.log('[ble] gave up after', ATTEMPTS, 'attempts');
+    // drop the saved address: it may be stale (printer re-flashed MAC etc.)
+    localStorage.removeItem('lidlprint.bleAddr');
     return 'failed';
   },
 
