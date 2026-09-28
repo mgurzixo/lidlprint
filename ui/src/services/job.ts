@@ -306,7 +306,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   async raw(hex: string): Promise<void> {
     await bleP().bleWrite({ uuid: BLE.WRITE, hex });
-    await sleep(60); // GATT serialization + printer pacing
+    await sleep(20); // GATT op separation only — pacing is sendJob's job
   },
 
   async read(): Promise<string[]> {
@@ -345,10 +345,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
     console.log(`[ble] printing ${rows} rows, level ${level}, ${total} bytes, ${rowMs}ms/row`);
-    // chunk the stream at BLE-buffer size (ATT MTU 23-517; assume 180 -> 8 overhead
-    // = 172 usable), one chunk every rowMs (100ms) — proven scheme from the
-    // successful black-strip test
-    const BLE_CHUNK = 172; // buffer - 8
+    // YHK-proven ISSC UART pacing: 182-byte chunks, 40ms apart (~5KB/s sweet
+    // spot). rowMs overrides the delay when set (tests).
+    const BLE_CHUNK = 182;
+    const delay = rowMs > 0 ? rowMs : 40;
     for (const chunk of chunks) {
       const isImage = chunk.length > 300;
       for (let off = 0; off < chunk.length; off += BLE_CHUNK) {
@@ -356,7 +356,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         await this.raw(
           Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''),
         );
-        if (isImage && rowMs > 0) await sleep(rowMs);
+        if (isImage) await sleep(delay);
       }
     }
     // wait for the ready sentinel
