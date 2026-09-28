@@ -245,23 +245,42 @@ function bleP(): any {
       }
       addr = (window as any).__bleAddr = hit.address;
     }
-    console.log('[ble] connecting', addr, '…');
-    await p.bleConnect({ address: addr });
-    // poll until service discovery completes (can take seconds on this printer)
-    let t: any = { services: [] };
-    for (let i = 0; i < 12; i++) {
-      await sleep(500);
-      t = await p.bleServices();
-      if (t.services && t.services.length > 0) break;
+    // retry loop: GATT connects to this printer are flaky (error 133 etc.)
+    const ATTEMPTS = 4;
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      console.log(`[ble] connect attempt ${attempt}/${ATTEMPTS} to ${addr}`);
+      try {
+        await p.bleConnect({ address: addr });
+        // poll until service discovery completes
+        let t: any = { services: [] };
+        for (let i = 0; i < 12; i++) {
+          await sleep(500);
+          t = await p.bleServices();
+          if (t.services && t.services.length > 0) break;
+        }
+        if (t.services && t.services.length > 0) {
+          console.log('[ble] GATT table:\n' + JSON.stringify(t.services, null, 1));
+          // enable notifications on the Nordic UART
+          await p.bleNotify({ uuid: BLE.NOTIFY });
+          await sleep(1500); // CCC settle — GATT ops are strictly serialized
+          // verify the command channel with a model query
+          const probe = await this.cmd('10ff20f0').catch(() => []);
+          if (probe.some((h: string) => h.includes('413259'))) {
+            BLE.connected = true;
+            console.log('[ble] READY (model verified)');
+            return 'ready';
+          }
+          console.log('[ble] connected but no model reply — retrying');
+        }
+      } catch (e) {
+        console.log(`[ble] attempt ${attempt} failed:`, String(e));
+      }
+      // clean slate before retrying
+      await p.bleDisconnect().catch(() => {});
+      await sleep(1000);
     }
-    console.log('[ble] GATT table:\n' + JSON.stringify(t.services, null, 1));
-    if (!t.services || t.services.length === 0) return 'no services discovered — retry go()';
-    // enable notifications on the Nordic UART
-    await p.bleNotify({ uuid: BLE.NOTIFY });
-    await sleep(1500); // CCC settle — GATT ops are strictly serialized
-    BLE.connected = true;
-    console.log('[ble] READY. Try: await __ble.cmd("10ff20f0")');
-    return 'ready';
+    console.log('[ble] gave up after', ATTEMPTS, 'attempts');
+    return 'failed';
   },
 
   async cmd(hex: string): Promise<string[]> {
