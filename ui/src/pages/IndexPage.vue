@@ -130,6 +130,17 @@
           <q-tooltip>Print over BLE</q-tooltip>
         </q-btn>
         <q-btn
+          flat
+          round
+          dense
+          color="deep-orange"
+          icon="format_color_fill"
+          :disable="bleState !== 'ready'"
+          @click="bleTest"
+        >
+          <q-tooltip>BLE test: 20 black rows</q-tooltip>
+        </q-btn>
+        <q-btn
           v-if="bleState !== 'off'"
           flat
           round
@@ -204,6 +215,15 @@ async function blePrint(): Promise<void> {
     await (window as any).__ble.print();
   } catch (e) {
     console.log('[ble] print error:', String(e));
+  }
+}
+
+async function bleTest(): Promise<void> {
+  if (bleState.value !== 'ready') return;
+  try {
+    await (window as any).__ble.testPrint();
+  } catch (e) {
+    console.log('[ble] test error:', String(e));
   }
 }
 
