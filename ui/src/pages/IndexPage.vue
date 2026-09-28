@@ -77,8 +77,19 @@
           round
           size="18px"
           color="grey-7"
+          icon="rotate_right"
+          @click="rotateImage"
+        >
+          <q-tooltip>Rotate 90°</q-tooltip>
+        </q-btn>
+        <q-btn
+          v-if="preview.url"
+          flat
+          round
+          size="18px"
+          color="grey-7"
           icon="delete"
-          @click="clearImage"
+          @click="confirmClear"
         >
           <q-tooltip>Clear image</q-tooltip>
         </q-btn>
@@ -101,11 +112,22 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { bt as btStore, useBt } from '@/services/bt';
 import { useJob } from '@/services/job';
 
 const bt = useBt();
 const router = useRouter();
+const $q = useQuasar();
+
+function confirmClear(): void {
+  $q.dialog({
+    title: 'Clear image?',
+    message: 'The current image will be removed.',
+    ok: { label: 'Clear', color: 'negative', noCaps: true },
+    cancel: { label: 'Keep', flat: true, noCaps: true },
+  }).onOk(() => clearImage());
+}
 const appVersion = __APP_VERSION__;
 const btState = computed(() => btStore.state);
 const btMessage = computed(() => btStore.message);
@@ -116,6 +138,7 @@ const {
   dither,
   printLabel,
   printing: job_printing,
+  rotateImage,
   canPrint,
   doPrint,
   clearImage,

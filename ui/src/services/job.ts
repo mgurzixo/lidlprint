@@ -62,6 +62,31 @@ function renderBitmapPreview(bm: Bitmap): string {
   return bwCanvas.toDataURL('image/png');
 }
 
+/** Rotate the loaded image 90° clockwise (source pixels, then re-preview). */
+export function rotateImage(): void {
+  const p = job.preview;
+  if (!p.rgba) return;
+  const w = p.srcW, h = p.srcH;
+  const r = new Uint8ClampedArray(p.rgba.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const src = (y * w + x) * 4;
+      const dst = (x * h + (h - 1 - y)) * 4;
+      r[dst] = p.rgba[src]!;
+      r[dst + 1] = p.rgba[src + 1]!;
+      r[dst + 2] = p.rgba[src + 2]!;
+      r[dst + 3] = p.rgba[src + 3]!;
+    }
+  }
+  const rows = Math.max(1, Math.round((w * 384) / h));
+  p.rgba = r;
+  p.srcW = h;
+  p.srcH = w;
+  p.rows = rows;
+  console.log('[lidlprint] rotate: now', p.srcW, 'x', p.srcH);
+  refreshBwPreview();
+}
+
 /** Re-rasterize the loaded image and refresh the WYSIWYG preview. */
 export function refreshBwPreview(): void {
   const p = job.preview;
@@ -161,22 +186,6 @@ async function loadImage(uri: string): Promise<void> {
   ctx.drawImage(img, 0, 0);
   let rgba = ctx.getImageData(0, 0, w, h).data;
   console.log('[lidlprint] loadImage: decoded', w, 'x', h, 'from', uri.slice(0, 48));
-  if (w > h) {
-    // rotate 90° clockwise for preview, matching the print orientation
-    const r = new Uint8ClampedArray(rgba.length);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const src = (y * w + x) * 4;
-        const dst = (x * h + (h - 1 - y)) * 4;
-        r[dst] = rgba[src]!;
-        r[dst + 1] = rgba[src + 1]!;
-        r[dst + 2] = rgba[src + 2]!;
-        r[dst + 3] = rgba[src + 3]!;
-      }
-    }
-    const tw = w; w = h; h = tw;
-    rgba = r;
-  }
   setPreview(rgba, w, h);
   // WYSIWYG: replace source preview with the rasterized B/W version
   refreshBwPreview();
@@ -409,6 +418,7 @@ export function useJob() {
     ),
     doPrint,
     clearImage,
+    rotateImage,
     pasteImage,
     pickImage,
     consumeShare,
