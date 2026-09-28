@@ -358,15 +358,35 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     return 'no sentinel';
   },
 
-  /** Print the loaded image over BLE — full job, 160-byte chunks. */
+  /** Print the loaded image over BLE — SEGMENTED: bands of <=200 rows, each a
+   *  complete job (begin -> raster -> feed -> end). Sidesteps the BLE-side
+   *  per-job size limit; seams are invisible on continuous paper. */
   async print(): Promise<string> {
     if (!job.preview.rgba) return 'no image loaded';
     if (!BLE.connected) await this.go();
     const bitmap = rasterize();
-    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
-    full.set(bitmap.data, 0);
-    // compressed + row-paced: same settings as the successful black-strip test
-    return this.sendJob(full, bitmap.height + 80, 6, 100);
+    const SEG_ROWS = 200;
+    const segments = Math.ceil(bitmap.height / SEG_ROWS);
+    console.log(`[ble] segmented print: ${bitmap.height} rows in ${segments} segment(s)`);
+    for (let seg = 0; seg < segments; seg++) {
+      const row0 = seg * SEG_ROWS;
+      const rows = Math.min(SEG_ROWS, bitmap.height - row0);
+      const isLast = seg === segments - 1;
+      const bytes = bitmap.data.subarray(row0 * 48, (row0 + rows) * 48);
+      // full job per segment: feed 0 for intermediate, 80 on the last
+      const payload = isLast
+        ? (() => { const f = new Uint8Array(bytes.length + 48 * 80); f.set(bytes, 0); return f; })()
+        : bytes;
+      const totalRows = isLast ? rows + 80 : rows;
+      console.log(`[ble] segment ${seg + 1}/${segments}: rows ${row0}..${row0 + rows - 1} (${rows})`);
+      const r = await this.sendJob(payload, totalRows, 6, 100);
+      if (r !== 'done' && r !== 'no sentinel') {
+        console.log(`[ble] segment ${seg + 1} failed: ${r}`);
+        return r;
+      }
+      await sleep(500); // settle between jobs
+    }
+    return 'done';
   },
 
   /** Send a bitmap job over BLE. level: deflate level; rowMs: pause per row. */
