@@ -11,6 +11,17 @@
         :disable="btState === 'connecting'"
         @click="onConnectTap"
       />
+      <q-btn
+        flat
+        round
+        dense
+        class="col-auto"
+        :color="bleMode ? 'info' : 'grey-5'"
+        icon="bluetooth"
+        @click="toggleBleMode"
+      >
+        <q-tooltip>{{ bleMode ? 'BLE mode ON — prints via Bluetooth LE' : 'BLE mode OFF — classic SPP' }}</q-tooltip>
+      </q-btn>
       <div class="col msg" :class="msgClass">{{ btMessage }}</div>
       <div class="col-auto text-caption text-grey-5 self-center">v{{ appVersion }}</div>
     </div>
@@ -105,9 +116,9 @@
         :label="printLabel"
         :color="canPrint ? 'primary' : 'grey-5'"
         :disable="!canPrint"
-        @click="doPrint"
+        @click="onPrintTap"
       />
-      <div class="row no-wrap items-center q-gutter-x-xs">
+      <div v-if="bleMode" class="row no-wrap items-center q-gutter-x-xs">
         <q-btn
           flat
           round
@@ -194,6 +205,20 @@ const {
   consumeShare,
 } = useJob();
 
+// ---- BLE mode (persisted) ----
+const bleMode = ref(localStorage.getItem('lidlprint.ble') === '1');
+function toggleBleMode(): void {
+  bleMode.value = !bleMode.value;
+  localStorage.setItem('lidlprint.ble', bleMode.value ? '1' : '0');
+  if (bleMode.value) {
+    console.log('[ble] mode ON — connect + print via BLE');
+  } else {
+    void (window as any).__ble?.off?.();
+    bleState.value = 'off';
+    console.log('[ble] mode OFF — classic SPP');
+  }
+}
+
 // ---- BLE footer buttons (experimental, RE phase) ----
 const bleState = ref<'off' | 'busy' | 'ready'>('off');
 
@@ -216,6 +241,26 @@ async function blePrint(): Promise<void> {
   } catch (e) {
     console.log('[ble] print error:', String(e));
   }
+}
+
+/** Print via BLE when bleMode, classic SPP otherwise. */
+async function onPrintTap(): Promise<void> {
+  if (bleMode.value) {
+    if (bleState.value !== 'ready') {
+      const r = await (window as any).__ble?.go?.();
+      if (r !== 'ready') {
+        console.log('[ble] not ready, print aborted');
+        return;
+      }
+    }
+    try {
+      await (window as any).__ble.print();
+    } catch (e) {
+      console.log('[ble] print error:', String(e));
+    }
+    return;
+  }
+  void doPrint();
 }
 
 async function bleTest(): Promise<void> {
