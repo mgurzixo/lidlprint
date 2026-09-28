@@ -212,23 +212,26 @@ onMounted(() => void consumeShare());
    from the paper's max-height */
 .fit-wrap {
   min-height: 0;
+  flex: 1 1 0; /* definite height = zone minus caption */
   width: 100%;
 }
 .paper {
   background: #fff;
   border: 1px dashed #bbb;
   overflow: hidden;
-  display: flex; /* shrink-wrap the fitted img */
+  flex: 1 1 0; /* definite height = fit-wrap height */
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .preview-img {
   display: block;
-  /* THE fit: constrained by the wrapper box (which is zone-height-limited),
-     keeps the bitmap aspect — browser solves the largest fitting size */
+  /* paper has a definite height now, so these resolve properly */
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: contain;
 }
 .print-btn {
   border-radius: 8px;
