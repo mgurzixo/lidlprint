@@ -138,6 +138,8 @@ public class BluetoothClassicPlugin extends Plugin {
         BluetoothDevice device = bm.getAdapter().getRemoteDevice(address);
         bleServices.clear();
         bleNotifyHex.clear();
+        // TRANSPORT_LE: pure GATT connection, no classic/bonding detours —
+        // this is what lets us print without any pairing
         bleGatt = device.connectGatt(getContext(), false, new BluetoothGattCallback() {
             @Override
             public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
@@ -188,7 +190,7 @@ public class BluetoothClassicPlugin extends Plugin {
                 android.util.Log.d("lidlprint", "BLE notify " + c.getUuid() + ": " + hex);
                 bleNotifyHex.add(hex);
             }
-        });
+        }, android.bluetooth.BluetoothDevice.TRANSPORT_LE);
         if (bleGatt == null) {
             call.reject("connectGatt failed");
             return;

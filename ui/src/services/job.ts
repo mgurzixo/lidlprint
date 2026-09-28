@@ -218,17 +218,23 @@ function countColors(rgba: Uint8ClampedArray): number {
 //   await __ble.raw("...hex...")  raw stream write (no auto-read)
 //   await __ble.read()            drain notifications
 //   await __ble.off()             disconnect
+function bleP(): any {
+  return (window as any).Capacitor?.Plugins?.BluetoothClassic;
+}
+
 const BLE = {
   SVC: '49535343-fe7d-4ae5-8fa9-9fafd205e455',
   WRITE: '49535343-8841-43f4-a8d4-ecbe34729bb3',
   NOTIFY: '49535343-1e4d-4bd9-ba61-23c647249616',
   connected: false,
 };
+// Release any GATT connection left over from a previous app session (the OS
+// keeps it alive across WebView reloads; a stale link blocks new connects).
+try {
+  bleP()?.bleDisconnect?.();
+  console.log('[ble] stale GATT released at boot');
+} catch { /* plugin not ready — fine */ }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function bleP(): any {
-  return (window as any).Capacitor?.Plugins?.BluetoothClassic;
-}
 
 (window as any).__ble = {
   async go(): Promise<string> {
