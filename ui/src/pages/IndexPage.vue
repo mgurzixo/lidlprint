@@ -21,56 +21,76 @@
         <div class="paper relative-position" :style="paperStyle">
           <img :src="preview.url" class="preview-img" alt="print preview" />
         </div>
-        <div class="row items-center justify-between full-width q-mt-sm">
-          <div class="text-caption text-grey-7">
-            prints at 384 × {{ preview.rows }} dots
-          </div>
-          <q-btn no-caps flat color="grey-7" icon="delete" label="Clear" @click="clearImage" />
+        <div class="text-caption text-grey-7 q-mt-sm">
+          prints at 384 × {{ preview.rows }} dots
         </div>
       </template>
       <div v-else class="text-grey-6 text-center q-pa-xl">
-        Share an image to LidlPrint, or use the buttons:
-        <div class="q-gutter-sm q-mt-sm">
-          <q-btn no-caps unelevated color="primary" label="Pick Image" @click="pickImage" />
-          <q-btn no-caps unelevated color="primary" label="Paste image" @click="pasteImage" />
+        Share an image to LidlPrint, or:
+        <div class="row justify-center q-gutter-sm q-mt-sm">
+          <q-btn round unelevated color="primary" icon="add_photo_alternate" @click="pickImage">
+            <q-tooltip>Pick image</q-tooltip>
+          </q-btn>
+          <q-btn round unelevated color="primary" icon="content_paste" @click="pasteImage">
+            <q-tooltip>Paste image</q-tooltip>
+          </q-btn>
         </div>
       </div>
     </div>
 
-    <!-- ③ Controls + ④ Print -->
+    <!-- ③ Controls (one icon line) + ④ Print -->
     <div class="controls q-px-md q-pb-md q-gutter-y-sm">
-      <q-btn-toggle
-        v-model="density"
-        class="full-width"
-        no-caps
-        unelevated
-        toggle-color="primary"
-        color="grey-3"
-        text-color="grey-9"
-        :options="[
-          { label: 'Lighter', value: 0 },
-          { label: 'Normal', value: 1 },
-          { label: 'Darker', value: 2 },
-        ]"
-      />
-      <q-btn-toggle
-        v-model="dither"
-        class="full-width"
-        no-caps
-        unelevated
-        toggle-color="primary"
-        color="grey-3"
-        text-color="grey-9"
-        :options="[
-          { label: 'Art (crisp)', value: 'art' },
-          { label: 'Photo (dithered)', value: 'photo' },
-        ]"
-      />
+      <div class="row no-wrap q-gutter-x-sm">
+        <q-btn-toggle
+          v-model="density"
+          class="col-auto"
+          dense
+          unelevated
+          toggle-color="primary"
+          color="grey-3"
+          text-color="grey-9"
+          :options="[
+            { icon: 'light_mode', value: 0 },
+            { icon: 'tonality', value: 1 },
+            { icon: 'dark_mode', value: 2 },
+          ]"
+        >
+          <q-tooltip>Lighter / Normal / Darker</q-tooltip>
+        </q-btn-toggle>
+        <q-btn-toggle
+          v-model="dither"
+          class="col-auto"
+          dense
+          unelevated
+          toggle-color="primary"
+          color="grey-3"
+          text-color="grey-9"
+          :options="[
+            { icon: 'qr_code_2', value: 'art' },
+            { icon: 'photo', value: 'photo' },
+          ]"
+        >
+          <q-tooltip>QR / line art — Photo (dithered)</q-tooltip>
+        </q-btn-toggle>
+        <q-space />
+        <q-btn
+          v-if="preview.url"
+          flat
+          round
+          dense
+          color="grey-7"
+          icon="delete"
+          @click="clearImage"
+        >
+          <q-tooltip>Clear image</q-tooltip>
+        </q-btn>
+      </div>
       <q-btn
         class="full-width print-btn"
         no-caps
         unelevated
         size="lg"
+        :icon-right="job_printing ? 'sync' : 'print'"
         :label="printLabel"
         :color="canPrint ? 'primary' : 'grey-5'"
         :disable="!canPrint"
@@ -97,6 +117,7 @@ const {
   density,
   dither,
   printLabel,
+  printing: job_printing,
   canPrint,
   doPrint,
   clearImage,

@@ -399,6 +399,7 @@ export function useJob() {
     printLabel: computed(() =>
       job.printing ? `Printing… ${job.progress}%` : 'Print',
     ),
+    printing: computed(() => job.printing),
     canPrint: computed(
       () =>
         !!job.preview.rgba &&
