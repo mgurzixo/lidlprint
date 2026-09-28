@@ -247,9 +247,15 @@ function bleP(): any {
     }
     console.log('[ble] connecting', addr, '…');
     await p.bleConnect({ address: addr });
-    await sleep(2000); // service discovery
-    const t = await p.bleServices();
+    // poll until service discovery completes (can take seconds on this printer)
+    let t: any = { services: [] };
+    for (let i = 0; i < 12; i++) {
+      await sleep(500);
+      t = await p.bleServices();
+      if (t.services && t.services.length > 0) break;
+    }
     console.log('[ble] GATT table:\n' + JSON.stringify(t.services, null, 1));
+    if (!t.services || t.services.length === 0) return 'no services discovered — retry go()';
     // enable notifications on the Nordic UART
     await p.bleNotify({ uuid: BLE.NOTIFY });
     await sleep(1500); // CCC settle — GATT ops are strictly serialized
