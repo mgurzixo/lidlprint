@@ -323,6 +323,41 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     return this.sendJob(data, rows, 6, 100);
   },
 
+  /** Print via UNCOMPRESSED GS v 0 raster over BLE (DP-L1S documented path).
+   *  100-byte chunks, 50ms apart — the tuning proven on the same OEM SDK. */
+  async printRaster(): Promise<string> {
+    if (!job.preview.rgba) return 'no image loaded';
+    if (!BLE.connected) await this.go();
+    const bitmap = rasterize();
+    const { CMD } = await import('./printer-protocol');
+    const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    // job: enable + wake + GS v 0 header + raw bitmap + feed + stop
+    const hL = (bitmap.height & 0xff).toString(16).padStart(2, '0');
+    const hH = ((bitmap.height >> 8) & 0xff).toString(16).padStart(2, '0');
+    const header = hex(CMD.beginJob);                      // 10fff103 + 12x00
+    const raster = `1d7630003000${hL}${hH}` + hex(bitmap.data);
+    const tail = hex(CMD.printFeed(0x50)) + hex(CMD.endJob); // 1b4a50 + 10fff145
+    const stream = header + raster + tail;
+    const total = stream.length / 2;
+    console.log(`[ble] raster print: ${bitmap.height} rows, ${total} bytes UNCOMPRESSED, 100B/50ms`);
+    for (let off = 0; off < stream.length; off += 200) { // 200 hex chars = 100 bytes
+      await this.raw(stream.slice(off, Math.min(off + 200, stream.length)));
+      await sleep(50);
+    }
+    // wait for the ready sentinel
+    for (let i = 0; i < 20; i++) {
+      await sleep(500);
+      const r = await bleP().bleReadNotify();
+      const joined = (r.notifications as string[]).join('');
+      if (joined.includes('aa')) {
+        console.log('[ble] DONE (aa received)');
+        return 'done';
+      }
+    }
+    console.log('[ble] no aa sentinel — check the paper');
+    return 'no sentinel';
+  },
+
   /** Print the loaded image over BLE — full job, 160-byte chunks. */
   async print(): Promise<string> {
     if (!job.preview.rgba) return 'no image loaded';
