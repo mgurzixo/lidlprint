@@ -314,25 +314,18 @@ function bleP(): any {
     });
     const total = chunks.reduce((n, c) => n + c.length, 0);
     console.log(`[ble] printing ${rows} rows, level ${level}, ${total} bytes, ${rowMs}ms/row`);
-    // the image chunk is one deflate stream; pace its transfer by ROWS:
-    // bytes per row = 48 -> derive how many image-chunk bytes correspond to one row
+    // chunk the stream at BLE-buffer size (ATT MTU 23-517; assume 180 -> 8 overhead
+    // = 172 usable), one chunk every rowMs (100ms) — proven scheme from the
+    // successful black-strip test
+    const BLE_CHUNK = 172; // buffer - 8
     for (const chunk of chunks) {
-      if (rowMs > 0 && chunk.length > 300) {
-        // image payload: pace row-equivalents of the COMPRESSED stream.
-        // compressed bytes per row = (chunk.length - 12) / rows
-        const bpr = Math.max(1, Math.ceil((chunk.length - 12) / rows));
-        for (let off = 0; off < chunk.length; off += bpr) {
-          const end = Math.min(off + bpr, chunk.length);
-          await this.raw(
-            Array.from(chunk.subarray(off, end), (b) => b.toString(16).padStart(2, '0')).join(''),
-          );
-          await sleep(rowMs);
-        }
-      } else {
-        for (let off = 0; off < chunk.length; off += 160) {
-          const part = chunk.subarray(off, Math.min(off + 160, chunk.length));
-          await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
-        }
+      const isImage = chunk.length > 300;
+      for (let off = 0; off < chunk.length; off += BLE_CHUNK) {
+        const part = chunk.subarray(off, Math.min(off + BLE_CHUNK, chunk.length));
+        await this.raw(
+          Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''),
+        );
+        if (isImage && rowMs > 0) await sleep(rowMs);
       }
     }
     // wait for the ready sentinel
