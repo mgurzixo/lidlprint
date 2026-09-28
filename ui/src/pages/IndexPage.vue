@@ -16,12 +16,9 @@
     </div>
 
     <!-- ② Preview -->
-    <div
-      ref="zoneRef"
-      class="col column items-center justify-center q-pa-md preview-zone"
-    >
+    <div class="col column items-center justify-center q-pa-md preview-zone">
       <template v-if="preview.url">
-        <div class="paper relative-position" :style="paperStyle">
+        <div class="paper relative-position" :style="{ '--preview-rows': preview.rows || 384 }">
           <img :src="preview.url" class="preview-img" alt="print preview" />
         </div>
         <div class="text-caption text-grey-7 q-mt-sm">
@@ -113,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, nextTick } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { bt as btStore, useBt } from '@/services/bt';
@@ -150,25 +147,9 @@ const {
   consumeShare,
 } = useJob();
 
-// WYSIWYG fit measured from the REAL preview zone (not guessed viewport math).
-// Whole image visible at max size: height-limited when tall, else 48mm wide.
-const zoneRef = ref<HTMLElement | null>(null);
-const zoneBox = ref({ w: 384, h: 480 });
-function measureZone(): void {
-  const el = zoneRef.value;
-  if (!el) return;
-  zoneBox.value = { w: el.clientWidth, h: el.clientHeight };
-}
-const paperStyle = computed(() => {
-  const rows = preview.rows || 1;
-  const aspect = rows / 384;
-  const { w: zoneW, h: zoneH } = zoneBox.value;
-  const pad = 18; // paper border + breathing room
-  const hLimited = (zoneH - pad) / (zoneW - pad) < aspect;
-  return hLimited
-    ? { height: `${zoneH - pad}px`, width: 'auto' }
-    : { width: `min(100%, 48mm)` };
-});
+// WYSIWYG fit is pure CSS now: the paper keeps the bitmap aspect ratio and is
+// constrained by both the zone width and height (max-width/max-height + margin
+// auto centering) — the browser picks the largest box that fits both.
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
@@ -192,16 +173,7 @@ function onConnectTap() {
   void bt.connect();
 }
 
-onMounted(() => {
-  void consumeShare();
-  measureZone();
-  window.addEventListener('resize', measureZone);
-});
-// re-measure when an image arrives (zone size settles after layout)
-watch(
-  () => preview.url,
-  () => nextTick(measureZone),
-);
+onMounted(() => void consumeShare());
 </script>
 
 <style scoped>
@@ -235,16 +207,19 @@ watch(
   overflow-y: auto; /* long strips scroll here, controls stay put */
 }
 .paper {
-  /* paper strip — sized by paperStyle so the WHOLE bitmap fits the zone */
   background: #fff;
   border: 1px dashed #bbb;
   overflow: hidden;
-  margin: 0 auto;
+  /* fit the whole bitmap inside the zone: max both dims, keep aspect */
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 384 / var(--preview-rows, 384);
 }
 .preview-img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
 }
 .print-btn {
   border-radius: 8px;
