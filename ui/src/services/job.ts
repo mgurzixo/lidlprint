@@ -34,21 +34,30 @@ export const job = reactive({
     rows: 0,
   } as PreviewState,
   dither: (localStorage.getItem('lidlprint.dither') as 'photo' | 'art') || 'art',
+  density: (Number(localStorage.getItem('lidlprint.density')) || 1) as 0 | 1 | 2,
   printing: false,
   progress: 0, // 0..100
   paperOk: true,
 });
 
+/** density 0=Light / 1=Normal / 2=Darker -> threshold bias for the raster */
+function densityBias(): number {
+  return job.density === 0 ? 48 : job.density === 2 ? -48 : 0;
+}
+
 function rasterize(): Bitmap {
   const p = job.preview;
   if (!p.rgba) throw new Error('no image');
+  const bias = densityBias();
   const gray = toGray(p.rgba, p.srcW, p.srcH);
   const scaled =
     job.dither === 'photo'
       ? scaleGrayBilinear(gray, HEAD_WIDTH_PX, p.rows)
       : scaleGray(gray, HEAD_WIDTH_PX, p.rows);
-  const bm = job.dither === 'photo' ? ditherFloydSteinberg(scaled) : threshold(scaled);
-  console.log('[lidlprint] rasterize: dither =', job.dither, 'bitmap', bm.width, 'x', bm.height,
+  const bm =
+    job.dither === 'photo' ? ditherFloydSteinberg(scaled, bias) : threshold(scaled, 128, bias);
+  console.log('[lidlprint] rasterize: dither =', job.dither, 'density =', job.density,
+    'bitmap', bm.width, 'x', bm.height,
     '(', bm.data.length, 'bytes,', bm.bytesPerRow, 'B/row )');
   return bm;
 }
@@ -341,6 +350,13 @@ export function useJob() {
       set: (v: 'photo' | 'art') => {
         job.dither = v;
         localStorage.setItem('lidlprint.dither', v);
+      },
+    }),
+    density: computed({
+      get: () => job.density,
+      set: (v: 0 | 1 | 2) => {
+        job.density = v;
+        localStorage.setItem('lidlprint.density', String(v));
       },
     }),
     printLabel: computed(() =>

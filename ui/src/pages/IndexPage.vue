@@ -40,6 +40,20 @@
     <!-- ③ Controls + ④ Print -->
     <div class="controls q-px-md q-pb-md q-gutter-y-sm">
       <q-btn-toggle
+        v-model="density"
+        class="full-width"
+        no-caps
+        unelevated
+        toggle-color="primary"
+        color="grey-3"
+        text-color="grey-9"
+        :options="[
+          { label: 'Lighter', value: 0 },
+          { label: 'Normal', value: 1 },
+          { label: 'Darker', value: 2 },
+        ]"
+      />
+      <q-btn-toggle
         v-model="dither"
         class="full-width"
         no-caps
@@ -80,6 +94,7 @@ const btMessage = computed(() => btStore.message);
 const btIsError = computed(() => btStore.isError);
 const {
   preview,
+  density,
   dither,
   printLabel,
   canPrint,
