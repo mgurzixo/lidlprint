@@ -15,6 +15,10 @@ import { bt as btStore, useBt, b64FromBytes, bytesFromB64, btPlugin, readContent
 export const HEAD_WIDTH_PX = 384;
 export const BYTES_PER_ROW = 48;
 
+/** Blank rows fed after the image, so the bottom margin visually matches the
+ *  ~13 mm top margin imposed by the device geometry (80 dots ≈ 5.5 mm bottom). */
+export const BOTTOM_FEED_DOTS = 190;
+
 interface PreviewState {
   /** object URL for the preview img */
   url: string;
@@ -331,7 +335,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         ? (() => { const f = new Uint8Array(48 * r + 48 * 80); f.fill(0xff, 0, 48 * r); return f; })()
         : data.subarray(seg * SEG * 48, (seg * SEG + r) * 48);
       console.log(`[ble] test segment ${seg + 1}/${nSeg}: ${r} rows`);
-      const res = await this.sendJob(payload, isLast ? r + 80 : r, 6, 60);
+      const res = await this.sendJob(payload, isLast ? r + BOTTOM_FEED_DOTS : r, 6, 60);
       if (res === 'failed') return res;
       await sleep(500);
     }
@@ -351,7 +355,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const hH = ((bitmap.height >> 8) & 0xff).toString(16).padStart(2, '0');
     const header = hex(CMD.beginJob);                      // 10fff103 + 12x00
     const raster = `1d7630003000${hL}${hH}` + hex(bitmap.data);
-    const tail = hex(CMD.printFeed(0x50)) + hex(CMD.endJob); // 1b4a50 + 10fff145
+    const tail = hex(CMD.printFeed(BOTTOM_FEED_DOTS)) + hex(CMD.endJob);
     const stream = header + raster + tail;
     const total = stream.length / 2;
     console.log(`[ble] raster print: ${bitmap.height} rows, ${total} bytes UNCOMPRESSED, 100B/50ms`);
@@ -383,7 +387,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const bitmap = rasterize();
     const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
     full.set(bitmap.data, 0);
-    return this.sendJob(full, bitmap.height + 80, 6, 1e9);
+    return this.sendJob(full, bitmap.height + BOTTOM_FEED_DOTS, 6, 1e9);
   },
 
   /** Send a bitmap over BLE as independent jobs of jobRows rows each.
@@ -396,7 +400,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     rows: number,
     level = 6,
     jobRows = 60,
-    feedDots = 0x50,
+    feedDots = BOTTOM_FEED_DOTS,
   ): Promise<string> {
     const { encodeJob } = await import('./printer-protocol');
     const pakoMod = await import('pako');
@@ -702,10 +706,10 @@ async function doPrint(): Promise<void> {
   job.progress = 0;
   try {
     const bitmap = rasterize();
-    // append ~10mm (80 dot-lines) of blank paper feed after the image
-    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
+    // blank paper feed after the image — sized so the bottom margin matches the 13mm top geometry margin
+    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * BOTTOM_FEED_DOTS);
     full.set(bitmap.data, 0);
-    const ok = await sendBitmapJob(full, bitmap.height + 80);
+    const ok = await sendBitmapJob(full, bitmap.height + BOTTOM_FEED_DOTS);
     if (ok) say('Printed ✓');
   } catch (e) {
     say(`Print failed: ${String(e)}`, true);
