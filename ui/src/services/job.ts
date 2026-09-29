@@ -418,7 +418,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     // YHK-proven ISSC UART pacing: 182-byte chunks, 40ms apart (~5KB/s sweet
     // spot). rowMs overrides the delay when set (tests).
     const BLE_CHUNK = 182;
-    const delay = rowMs > 0 ? rowMs : 40;
+    const delay = rowMs > 0 ? rowMs : 50;
     for (const chunk of chunks) {
       const isImage = chunk.length > 300;
       for (let off = 0; off < chunk.length; off += BLE_CHUNK) {
