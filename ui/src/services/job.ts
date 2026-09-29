@@ -442,10 +442,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       // inflates as bytes arrive; if its UART RX ring overflows, bytes drop
       // silently and the deflate stream desyncs (ER). 50ms ≈ 3.4KB/s.
       for (const chunk of chunks) {
-        for (let off = 0; off < chunk.length; off += 172) {
-          const part = chunk.subarray(off, Math.min(off + 172, chunk.length));
+        for (let off = 0; off < chunk.length; off += 100) {
+          const part = chunk.subarray(off, Math.min(off + 100, chunk.length));
           await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
-          await sleep(50);
+          await sleep(80);
         }
       }
       // wait for this job's completion reply (aa = ok, ER = error)
