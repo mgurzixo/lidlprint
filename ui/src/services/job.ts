@@ -320,7 +320,22 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   async testPrint(rows = 20): Promise<string> {
     if (!BLE.connected) await this.go();
     const data = new Uint8Array(48 * rows).fill(0xff);
-    return this.sendJob(data, rows, 6, 100);
+    if (rows <= 200) return this.sendJob(data, rows, 6, 100);
+    // segmented like the real print path: 200-row bands, feed only on last
+    const SEG = 200;
+    const nSeg = Math.ceil(rows / SEG);
+    for (let seg = 0; seg < nSeg; seg++) {
+      const r = Math.min(SEG, rows - seg * SEG);
+      const isLast = seg === nSeg - 1;
+      const payload = isLast
+        ? (() => { const f = new Uint8Array(48 * r + 48 * 80); f.fill(0xff, 0, 48 * r); return f; })()
+        : data.subarray(seg * SEG * 48, (seg * SEG + r) * 48);
+      console.log(`[ble] test segment ${seg + 1}/${nSeg}: ${r} rows`);
+      const res = await this.sendJob(payload, isLast ? r + 80 : r, 6, 100);
+      if (res === 'failed') return res;
+      await sleep(500);
+    }
+    return 'done';
   },
 
   /** Print via UNCOMPRESSED GS v 0 raster over BLE (DP-L1S documented path).
