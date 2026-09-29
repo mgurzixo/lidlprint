@@ -438,11 +438,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         deflate: (d) => pakoMod.deflateRaw(d, { level }) as Uint8Array,
         mode: 0x0c,
       });
-      // blast this job's chunks (255B), no reads mid-job
+      // write each chunk in BLE-att-safe pieces (<= 172 bytes per write)
       for (const chunk of chunks) {
-        await this.raw(
-          Array.from(chunk, (b) => b.toString(16).padStart(2, '0')).join(''),
-        );
+        for (let off = 0; off < chunk.length; off += 172) {
+          const part = chunk.subarray(off, Math.min(off + 172, chunk.length));
+          await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
+        }
       }
       // wait for this job's completion reply (aa = ok, ER = error)
       const reply = await this.waitReply(8000);
