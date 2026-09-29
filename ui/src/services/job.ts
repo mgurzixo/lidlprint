@@ -445,7 +445,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         for (let off = 0; off < chunk.length; off += 100) {
           const part = chunk.subarray(off, Math.min(off + 100, chunk.length));
           await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
-          await sleep(80);
+          await sleep(300);
         }
       }
       // wait for this job's completion reply (aa = ok, ER = error)
