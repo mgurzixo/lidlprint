@@ -406,12 +406,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   /** Send a bitmap over BLE as independent jobs of jobRows rows each.
    *  Each job: begin -> header+deflate -> feed -> end, then wait for the
-   *  printer's reply (aa = done, ER = error). feedDots applies to the LAST job. */
+   *  printer's reply (aa = done, ER = error). feedDots applies to the LAST
+   *  job. jobRows=60: the printer ERs above ~1KB of compressed image per
+   *  job (measured); 60 rows of dithered photo compress to ~600-900B. */
   async sendJob(
     bitmapBytes: Uint8Array,
     rows: number,
     level = 6,
-    jobRows = 200,
+    jobRows = 60,
     feedDots = 0x50,
   ): Promise<string> {
     const { encodeJob } = await import('./printer-protocol');
