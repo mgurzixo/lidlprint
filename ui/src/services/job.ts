@@ -373,35 +373,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     return 'no sentinel';
   },
 
-  /** Print the loaded image over BLE — SEGMENTED: bands of <=200 rows, each a
-   *  complete job (begin -> raster -> feed -> end). Sidesteps the BLE-side
-   *  per-job size limit; seams are invisible on continuous paper. */
+  /** Print the loaded image over BLE — ONE single job for the whole image.
+   *  The job's compressed stream is written in bursts of 10 GATT writes
+   *  followed by a 10s drain pause, letting the printer's MCU consume the
+   *  bytes it has before more arrive. */
   async print(): Promise<string> {
     if (!job.preview.rgba) return 'no image loaded';
     if (!BLE.connected) await this.go();
     const bitmap = rasterize();
-    const SEG_ROWS = 200;
-    const segments = Math.ceil(bitmap.height / SEG_ROWS);
-    console.log(`[ble] segmented print: ${bitmap.height} rows in ${segments} segment(s)`);
-    for (let seg = 0; seg < segments; seg++) {
-      const row0 = seg * SEG_ROWS;
-      const rows = Math.min(SEG_ROWS, bitmap.height - row0);
-      const isLast = seg === segments - 1;
-      const bytes = bitmap.data.subarray(row0 * 48, (row0 + rows) * 48);
-      // full job per segment: feed 0 for intermediate, 80 on the last
-      const payload = isLast
-        ? (() => { const f = new Uint8Array(bytes.length + 48 * 80); f.set(bytes, 0); return f; })()
-        : bytes;
-      const totalRows = isLast ? rows + 80 : rows;
-      console.log(`[ble] segment ${seg + 1}/${segments}: rows ${row0}..${row0 + rows - 1} (${rows})`);
-      const r = await this.sendJob(payload, totalRows, 6, 60);
-      if (r !== 'done' && r !== 'no sentinel') {
-        console.log(`[ble] segment ${seg + 1} failed: ${r}`);
-        return r;
-      }
-      await sleep(500); // settle between jobs
-    }
-    return 'done';
+    const full = new Uint8Array(bitmap.data.length + bitmap.bytesPerRow * 80);
+    full.set(bitmap.data, 0);
+    return this.sendJob(full, bitmap.height + 80, 6, 1e9);
   },
 
   /** Send a bitmap over BLE as independent jobs of jobRows rows each.
@@ -440,14 +422,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         deflate: (d) => pakoMod.deflateRaw(d, { level }) as Uint8Array,
         mode: 0x0c,
       });
-      // write each chunk in BLE-att-safe pieces with pacing: the printer MCU
-      // inflates as bytes arrive; if its UART RX ring overflows, bytes drop
-      // silently and the deflate stream desyncs (ER). 50ms ≈ 3.4KB/s.
+      // single job, burst writes: 10 writes then a 10s drain pause so the
+      // printer MCU can inflate/drain what it holds before more arrives
+      let writes = 0;
       for (const chunk of chunks) {
         for (let off = 0; off < chunk.length; off += 100) {
           const part = chunk.subarray(off, Math.min(off + 100, chunk.length));
           await this.raw(Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''));
-          await sleep(300);
+          writes++;
+          if (writes % 10 === 0) {
+            console.log(`[ble] ${writes} writes — drain pause 10s`);
+            await sleep(10000);
+          }
         }
       }
       // wait for this job's completion reply (aa = ok, ER = error)
