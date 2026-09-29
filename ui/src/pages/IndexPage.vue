@@ -11,17 +11,6 @@
         :disable="btState === 'connecting'"
         @click="onConnectTap"
       />
-      <q-btn
-        flat
-        round
-        dense
-        class="col-auto"
-        :color="bleMode ? 'info' : 'grey-5'"
-        icon="bluetooth"
-        @click="toggleBleMode"
-      >
-        <q-tooltip>{{ bleMode ? 'BLE mode ON — prints via Bluetooth LE' : 'BLE mode OFF — classic SPP' }}</q-tooltip>
-      </q-btn>
       <div class="col msg" :class="msgClass">{{ btMessage }}</div>
       <div class="col-auto text-caption text-grey-5 self-center">v{{ appVersion }}</div>
     </div>
@@ -116,53 +105,8 @@
         :label="printLabel"
         :color="canPrint ? 'primary' : 'grey-5'"
         :disable="!canPrint"
-        @click="onPrintTap"
+        @click="doPrint"
       />
-      <div v-if="bleMode" class="row no-wrap items-center q-gutter-x-xs">
-        <q-btn
-          flat
-          round
-          dense
-          :color="bleState === 'ready' ? 'positive' : 'grey-7'"
-          :icon="bleState === 'ready' ? 'bluetooth_connect' : 'bluetooth'"
-          @click="bleGo"
-        >
-          <q-tooltip>BLE connect (printer ON)</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          color="grey-7"
-          icon="print"
-          :disable="bleState !== 'ready' || !preview.url"
-          @click="blePrint"
-        >
-          <q-tooltip>Print over BLE</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          color="deep-orange"
-          icon="format_color_fill"
-          :disable="bleState !== 'ready'"
-          @click="bleTest"
-        >
-          <q-tooltip>BLE test: 384 black rows (segmented)</q-tooltip>
-        </q-btn>
-        <q-btn
-          v-if="bleState !== 'off'"
-          flat
-          round
-          dense
-          color="grey-7"
-          icon="bluetooth_disabled"
-          @click="bleOff"
-        >
-          <q-tooltip>BLE disconnect</q-tooltip>
-        </q-btn>
-      </div>
     </div>
   </q-page>
 </template>
@@ -205,80 +149,6 @@ const {
   consumeShare,
 } = useJob();
 
-// ---- BLE mode (persisted) ----
-const bleMode = ref(localStorage.getItem('lidlprint.ble') === '1');
-function toggleBleMode(): void {
-  bleMode.value = !bleMode.value;
-  localStorage.setItem('lidlprint.ble', bleMode.value ? '1' : '0');
-  if (bleMode.value) {
-    console.log('[ble] mode ON — connect + print via BLE');
-  } else {
-    void (window as any).__ble?.off?.();
-    bleState.value = 'off';
-    console.log('[ble] mode OFF — classic SPP');
-  }
-}
-
-// ---- BLE footer buttons (experimental, RE phase) ----
-const bleState = ref<'off' | 'busy' | 'ready'>('off');
-
-async function bleGo(): Promise<void> {
-  if (bleState.value === 'busy') return;
-  bleState.value = 'busy';
-  try {
-    const r = await (window as any).__ble.go();
-    bleState.value = r === 'ready' ? 'ready' : 'off';
-  } catch (e) {
-    console.log('[ble] go error:', String(e));
-    bleState.value = 'off';
-  }
-}
-
-async function blePrint(): Promise<void> {
-  if (bleState.value !== 'ready') return;
-  try {
-    await (window as any).__ble.print();
-  } catch (e) {
-    console.log('[ble] print error:', String(e));
-  }
-}
-
-/** Print via BLE when bleMode, classic SPP otherwise. */
-async function onPrintTap(): Promise<void> {
-  if (bleMode.value) {
-    if (bleState.value !== 'ready') {
-      const r = await (window as any).__ble?.go?.();
-      if (r !== 'ready') {
-        console.log('[ble] not ready, print aborted');
-        return;
-      }
-    }
-    try {
-      await (window as any).__ble.print();
-    } catch (e) {
-      console.log('[ble] print error:', String(e));
-    }
-    return;
-  }
-  void doPrint();
-}
-
-async function bleTest(): Promise<void> {
-  if (bleState.value !== 'ready') return;
-  try {
-    await (window as any).__ble.testPrint(384);
-  } catch (e) {
-    console.log('[ble] test error:', String(e));
-  }
-}
-
-async function bleOff(): Promise<void> {
-  try {
-    await (window as any).__ble.off();
-  } finally {
-    bleState.value = 'off';
-  }
-}
 
 const connectLabel = computed(() => {
   if (btState.value === 'connecting') return 'Connecting…';
