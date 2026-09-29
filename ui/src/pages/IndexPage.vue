@@ -149,7 +149,7 @@
           :disable="bleState !== 'ready'"
           @click="bleTest"
         >
-          <q-tooltip>BLE test: 20 black rows</q-tooltip>
+          <q-tooltip>BLE test: 384 black rows (segmented)</q-tooltip>
         </q-btn>
         <q-btn
           v-if="bleState !== 'off'"
@@ -266,7 +266,7 @@ async function onPrintTap(): Promise<void> {
 async function bleTest(): Promise<void> {
   if (bleState.value !== 'ready') return;
   try {
-    await (window as any).__ble.testPrint();
+    await (window as any).__ble.testPrint(384);
   } catch (e) {
     console.log('[ble] test error:', String(e));
   }
