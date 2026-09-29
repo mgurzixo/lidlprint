@@ -404,43 +404,71 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     return 'done';
   },
 
-  /** Send a bitmap job over BLE. level: deflate level; rowMs: pause per row. */
-  async sendJob(bitmapBytes: Uint8Array, rows: number, level = 6, rowMs = 0): Promise<string> {
+  /** Send a bitmap over BLE as independent jobs of jobRows rows each.
+   *  Each job: begin -> header+deflate -> feed -> end, then wait for the
+   *  printer's reply (aa = done, ER = error). feedDots applies to the LAST job. */
+  async sendJob(
+    bitmapBytes: Uint8Array,
+    rows: number,
+    level = 6,
+    jobRows = 200,
+    feedDots = 0x50,
+  ): Promise<string> {
     const { encodeJob } = await import('./printer-protocol');
     const pakoMod = await import('pako');
-    const chunks = encodeJob(bitmapBytes, rows, {
-      gen: 2,
-      deflate: (d) => pakoMod.deflateRaw(d, { level }) as Uint8Array,
-      mode: 0x0c,
-    });
-    const total = chunks.reduce((n, c) => n + c.length, 0);
-    console.log(`[ble] printing ${rows} rows, level ${level}, ${total} bytes, ${rowMs}ms/row`);
-    // YHK-proven ISSC UART pacing: 182-byte chunks, 40ms apart (~5KB/s sweet
-    // spot). rowMs overrides the delay when set (tests).
-    const BLE_CHUNK = 182;
-    const delay = rowMs > 0 ? rowMs : 50;
-    for (const chunk of chunks) {
-      const isImage = chunk.length > 300;
-      for (let off = 0; off < chunk.length; off += BLE_CHUNK) {
-        const part = chunk.subarray(off, Math.min(off + BLE_CHUNK, chunk.length));
+    const jobs = Math.ceil(rows / jobRows);
+    let lastReply = 'no sentinel';
+    for (let j = 0; j < jobs; j++) {
+      const row0 = j * jobRows;
+      const r = Math.min(jobRows, rows - row0);
+      const isLast = j === jobs - 1;
+      console.log(`[ble] job ${j + 1}/${jobs}: rows ${row0}..${row0 + r - 1} (${r})`);
+      // bitmap slice for this segment
+      const bytes = bitmapBytes.subarray(row0 * 48, (row0 + r) * 48);
+      const payload = isLast
+        ? (() => {
+            const f = new Uint8Array(bytes.length + 48 * feedDots);
+            f.set(bytes, 0);
+            return f;
+          })()
+        : bytes;
+      const totalRows = isLast ? r + feedDots : r;
+      const chunks = encodeJob(payload, totalRows, {
+        gen: 2,
+        deflate: (d) => pakoMod.deflateRaw(d, { level }) as Uint8Array,
+        mode: 0x0c,
+      });
+      // blast this job's chunks (255B), no reads mid-job
+      for (const chunk of chunks) {
         await this.raw(
-          Array.from(part, (b) => b.toString(16).padStart(2, '0')).join(''),
+          Array.from(chunk, (b) => b.toString(16).padStart(2, '0')).join(''),
         );
-        if (isImage) await sleep(delay);
       }
+      // wait for this job's completion reply (aa = ok, ER = error)
+      const reply = await this.waitReply(8000);
+      console.log(`[ble] job ${j + 1}/${jobs} reply:`, reply);
+      if (reply.startsWith('45')) {
+        lastReply = `ER at job ${j + 1}`;
+        return lastReply;
+      }
+      lastReply = reply.includes('aa') ? 'aa' : reply;
+      if (!isLast) await sleep(300); // mechanical settle between jobs
     }
-    // wait for the ready sentinel
-    for (let i = 0; i < 20; i++) {
-      await sleep(500);
+    return lastReply;
+  },
+
+  /** Poll notifications for a reply. Returns hex joined. */
+  async waitReply(timeoutMs = 8000): Promise<string> {
+    let acc = '';
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
       const r = await bleP().bleReadNotify();
-      const joined = (r.notifications as string[]).join('');
-      if (joined.includes('aa0d0a') || joined.includes('aa')) {
-        console.log('[ble] DONE (aa received)');
-        return 'done';
-      }
+      for (const h of r.notifications as string[]) acc += h;
+      if (acc.includes('aa0d0a') || acc.includes('aa')) return acc;
+      if (acc.includes('4552')) return acc; // ER reply
+      await sleep(300);
     }
-    console.log('[ble] no aa sentinel — check the paper');
-    return 'no sentinel';
+    return acc || 'no reply';
   },
 
   async off(): Promise<void> {
