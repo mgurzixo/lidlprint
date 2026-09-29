@@ -320,7 +320,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   async testPrint(rows = 20): Promise<string> {
     if (!BLE.connected) await this.go();
     const data = new Uint8Array(48 * rows).fill(0xff);
-    if (rows <= 200) return this.sendJob(data, rows, 6, 100);
+    if (rows <= 200) return this.sendJob(data, rows, 6, 60);
     // segmented like the real print path: 200-row bands, feed only on last
     const SEG = 200;
     const nSeg = Math.ceil(rows / SEG);
@@ -331,7 +331,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         ? (() => { const f = new Uint8Array(48 * r + 48 * 80); f.fill(0xff, 0, 48 * r); return f; })()
         : data.subarray(seg * SEG * 48, (seg * SEG + r) * 48);
       console.log(`[ble] test segment ${seg + 1}/${nSeg}: ${r} rows`);
-      const res = await this.sendJob(payload, isLast ? r + 80 : r, 6, 100);
+      const res = await this.sendJob(payload, isLast ? r + 80 : r, 6, 60);
       if (res === 'failed') return res;
       await sleep(500);
     }
@@ -394,7 +394,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         : bytes;
       const totalRows = isLast ? rows + 80 : rows;
       console.log(`[ble] segment ${seg + 1}/${segments}: rows ${row0}..${row0 + rows - 1} (${rows})`);
-      const r = await this.sendJob(payload, totalRows, 6, 100);
+      const r = await this.sendJob(payload, totalRows, 6, 60);
       if (r !== 'done' && r !== 'no sentinel') {
         console.log(`[ble] segment ${seg + 1} failed: ${r}`);
         return r;
